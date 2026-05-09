@@ -1,0 +1,32 @@
+[
+  {
+    "Product Id": 101,
+    "Product Long Label": "Alpha Antenna",
+    "Product Short Sort Label": "Alpha Antenna",
+    "Product Currency": false,
+    "Product Blueprint": false,
+    "Product Paintable": false,
+    "Product Quality Id": 1,
+    "Slot Index": 4,
+    "Product Asset Package": "Antenna_Alpha",
+    "Product Asset Path": "Antenna_Alpha.Antenna_Alpha",
+    "Product Thumbnail Package": "Antenna_Alpha_T",
+    "Product Thumbnail Asset": "Antenna_Alpha_T",
+    "Product Trade Restrictions": []
+  },
+  {
+    "Product Id": 202,
+    "Product Long Label": "Beta Decal",
+    "Product Short Sort Label": "Beta Decal",
+    "Product Currency": false,
+    "Product Blueprint": false,
+    "Product Paintable": true,
+    "Product Quality Id": 8,
+    "Slot Index": 1,
+    "Product Asset Package": "Skin_Beta",
+    "Product Asset Path": "Skin_Beta.Skin_Beta",
+    "Product Thumbnail Package": "Skin_Beta_T",
+    "Product Thumbnail Asset": "Skin_Beta_T",
+    "Product Trade Restrictions": []
+  }
+]

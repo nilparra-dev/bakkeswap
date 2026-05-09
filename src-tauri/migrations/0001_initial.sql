@@ -11,6 +11,10 @@ CREATE TABLE IF NOT EXISTS products (
     thumb_upk TEXT,
     visual_asset TEXT,
     thumbnail_asset TEXT,
+    product_asset_package TEXT,
+    product_asset_path TEXT,
+    product_thumbnail_package TEXT,
+    product_thumbnail_asset TEXT,
     source_dump TEXT,
     updated_at TEXT NOT NULL
 );

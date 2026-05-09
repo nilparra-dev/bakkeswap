@@ -1,0 +1,18 @@
+[
+  {
+    "Slot Index": 1,
+    "Slot Label": "Decal",
+    "Slot Plural Label": "Decals",
+    "Slot Online Label": "Decal",
+    "Slot Description": "Vehicle skin slot",
+    "Slot Default Product Id": 0
+  },
+  {
+    "Slot Index": 4,
+    "Slot Label": "Antenna",
+    "Slot Plural Label": "Antennas",
+    "Slot Online Label": "Antenna",
+    "Slot Description": "Roof flair slot",
+    "Slot Default Product Id": 0
+  }
+]

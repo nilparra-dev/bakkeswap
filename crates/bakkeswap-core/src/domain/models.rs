@@ -13,6 +13,10 @@ pub struct ProductRecord {
     pub thumb_upk: Option<String>,
     pub visual_asset: Option<String>,
     pub thumbnail_asset: Option<String>,
+    pub product_asset_package: Option<String>,
+    pub product_asset_path: Option<String>,
+    pub product_thumbnail_package: Option<String>,
+    pub product_thumbnail_asset: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,6 +52,7 @@ pub struct LocalFileRecord {
     pub exists_on_disk: bool,
     pub size_bytes: Option<u64>,
     pub sha256: Option<String>,
+    pub cooked_root: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,7 +129,12 @@ pub struct SettingsRecord {
 pub struct GamePathValidation {
     pub input_path: String,
     pub normalized_cooked_dir: Option<String>,
+    pub input_kind: Option<String>,
     pub is_valid: bool,
+    pub input_exists: bool,
+    pub cooked_exists: bool,
+    pub upk_count: usize,
+    pub sample_upks: Vec<String>,
     pub warnings: Vec<String>,
     pub errors: Vec<String>,
 }
@@ -133,8 +143,11 @@ pub struct GamePathValidation {
 pub struct AppStatus {
     pub configured_game_path: Option<String>,
     pub configured_cooked_dir: Option<String>,
+    pub configured_codered_dumps_dir: Option<String>,
     pub database_ready: bool,
     pub local_files_indexed: bool,
+    pub product_count: usize,
+    pub title_count: usize,
     pub active_swap_count: usize,
     pub original_backup_count: usize,
     pub profile_backup_count: usize,
