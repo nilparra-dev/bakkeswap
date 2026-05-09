@@ -252,16 +252,59 @@ Still deferred:
 - any automated test or workflow that targets a real Rocket League install path
 - any install path that bypasses preview or backup preflight
 
-### `bakkeswap restore --profile <profile_name>`
+### `bakkeswap restore --profile <profile_name> --dry-run`
 
 Purpose:
 
-- restore files from profile backup state
+- preview exact restore actions without touching the cooked root
 
-Required future behavior:
+Current implementation:
 
-- restore exact files for the named profile
-- clear active install state after a successful restore
+- loads `workspace/backups/<profile_name>/manifest.json` by default
+- verifies backup files exist and verifies backup hashes before any real restore path can proceed
+- resolves restore destinations under the cooked root recorded in `install_manifest.json` when available
+- falls back to the currently configured cooked root when `install_manifest.json` is unavailable
+- blocks any restore path whose relative file path would escape the configured `CookedPCConsole`
+- reports exact backup source files, destination files, and hash state
+- writes nothing during dry-run preview
+- supports `--from-originals` to preview the emergency permanent-original restore path explicitly
+
+### `bakkeswap restore --profile <profile_name> --confirm "RESTORE <profile_name>"`
+
+Purpose:
+
+- restore files from the per-profile backup set after explicit confirmation
+
+Current implementation:
+
+- requires exact confirmation text `RESTORE <profile_name>`
+- refuses plain restore without the correct confirmation phrase
+- restores from `workspace/backups/<profile_name>/manifest.json` by default
+- verifies backup file hashes before copying any file back into `CookedPCConsole`
+- verifies restored destination hashes after copy
+- updates `install_manifest.json` with `restored_at` when the install manifest exists
+- updates the saved plan JSON with `install_status = restored` and `last_install.restored_at` when the plan is available
+- updates the active `installed_swaps` row with `restored_at` and `active = 0` when the plan exists in SQLite
+- supports human-readable output by default and `--json` for machine-readable reports
+
+### `bakkeswap restore --profile <profile_name> --from-originals --confirm "RESTORE ORIGINALS <profile_name>"`
+
+Purpose:
+
+- run the explicit emergency fallback restore path from permanent original backups
+
+Current implementation:
+
+- is never used automatically as a fallback from the normal profile-restore path
+- requires both `--from-originals` and exact confirmation text `RESTORE ORIGINALS <profile_name>`
+- restores from `workspace/original_files_backup/manifest.json`
+- emits an explicit emergency-path warning in the restore report
+- still enforces path safety and hash verification before any file copy
+
+Still deferred:
+
+- GUI wiring for restore workflows
+- manual operator checklist for non-sandbox restore use
 
 ### `bakkeswap status`
 

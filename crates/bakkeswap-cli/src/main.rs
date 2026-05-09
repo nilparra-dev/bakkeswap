@@ -8,12 +8,13 @@ use bakkeswap_core::database::{
 };
 use bakkeswap_core::domain::models::{
     BackupResult, BackupVerificationResult, InstallPreview, InstallReport, PlanBuildReport,
-    SwapPlan,
+    RestoreReport, SwapPlan,
 };
 use bakkeswap_core::services::{
     BuildPlanRequest, BuildService, InstallExecutionRequest, InstallPreviewRequest,
     InstallerService, PathService, PermanentOriginalBackupManager, PlannerService,
-    ProfileBackupManager, StatusService,
+    ProfileBackupManager, RestoreExecutionRequest, RestorePreviewRequest, RestoreService,
+    StatusService,
 };
 use bakkeswap_core::upk::{
     rebuild_target_identity, KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest,
@@ -163,6 +164,14 @@ struct InstallArgs {
 struct RestoreArgs {
     #[arg(long)]
     profile: String,
+    #[arg(long, default_value_t = false)]
+    dry_run: bool,
+    #[arg(long)]
+    confirm: Option<String>,
+    #[arg(long, default_value_t = false)]
+    from_originals: bool,
+    #[arg(long, default_value_t = false)]
+    json: bool,
 }
 
 #[derive(Debug, Subcommand)]
@@ -234,7 +243,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Plan(args) => command_plan(args),
         Command::Build(args) => command_build(args),
         Command::Install(args) => command_install(args),
-        Command::Restore(args) => print_stub_with_value("restore", args.profile),
+        Command::Restore(args) => command_restore(args),
         Command::Status => command_status(),
         Command::Backup { command } => match command {
             BackupCommand::Originals { command } => match command {
@@ -488,6 +497,50 @@ fn command_install(args: InstallArgs) -> Result<()> {
 
     if report.status != "installed" && report.status != "installed_with_warnings" {
         std::process::exit(4);
+    }
+
+    Ok(())
+}
+
+fn command_restore(args: RestoreArgs) -> Result<()> {
+    let database = DatabaseService::for_current_user()?;
+    let restorer = RestoreService::new(database);
+
+    if args.dry_run {
+        let report = restorer.preview_restore(&RestorePreviewRequest {
+            profile_name: args.profile,
+            from_originals: args.from_originals,
+            ..RestorePreviewRequest::default()
+        })?;
+
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&report)?);
+        } else {
+            print_restore_report_summary(&report);
+        }
+
+        if report.status != "preview_ready" {
+            std::process::exit(7);
+        }
+
+        return Ok(());
+    }
+
+    let report = restorer.restore(&RestoreExecutionRequest {
+        profile_name: args.profile,
+        from_originals: args.from_originals,
+        confirmation: args.confirm,
+        ..RestoreExecutionRequest::default()
+    })?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print_restore_report_summary(&report);
+    }
+
+    if report.status != "restored" && report.status != "restored_with_warnings" {
+        std::process::exit(7);
     }
 
     Ok(())
@@ -936,6 +989,76 @@ fn print_install_report_summary(report: &InstallReport) {
     println!("Confirmation phrase: {}", report.confirmation_phrase);
 }
 
+fn print_restore_report_summary(report: &RestoreReport) {
+    println!("Restore profile: {}", report.profile_name);
+    println!("Status: {}", report.status);
+    println!("Dry run: {}", yes_no(report.dry_run));
+    println!("From originals: {}", yes_no(report.from_originals));
+    println!("CookedPCConsole: {}", report.cooked_root);
+    println!(
+        "Restored at: {}",
+        report
+            .restored_at
+            .map(|value| value.to_rfc3339())
+            .unwrap_or_else(|| "[not restored]".to_string())
+    );
+    println!(
+        "Install manifest: {}",
+        report
+            .install_manifest_path
+            .as_deref()
+            .unwrap_or("[not found]")
+    );
+    println!(
+        "Profile backup manifest: {}",
+        report.profile_backup_manifest_path
+    );
+    println!(
+        "Original backup manifest: {}",
+        report.original_backup_manifest_path
+    );
+    if report.blockers.is_empty() {
+        println!("Blockers: none");
+    } else {
+        println!("Blockers:");
+        for blocker in &report.blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if report.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {}", warning.message);
+        }
+    }
+    if report.files.is_empty() {
+        println!("Restore files: [none]");
+    } else {
+        println!("Restore files:");
+        for file in &report.files {
+            println!(
+                "  {}: {} -> {} [{}]",
+                file.kind, file.backup_source_path, file.destination_path, file.backup_kind
+            );
+            println!(
+                "    expected={} backup={} restored={}",
+                file.expected_sha256,
+                file.backup_sha256.as_deref().unwrap_or("[not available]"),
+                file.actual_restored_sha256
+                    .as_deref()
+                    .unwrap_or("[not restored]")
+            );
+        }
+    }
+    println!("Restore command: {}", report.restore_command);
+    println!("Confirmation phrase: {}", report.confirmation_phrase);
+    if report.dry_run {
+        println!("Dry run only. No files were written to CookedPCConsole.");
+    }
+}
+
 fn prompt_install_confirmation(phrase: &str) -> Result<Option<String>> {
     println!("Type '{}' to continue, or press Enter to cancel.", phrase);
     print!("confirm> ");
@@ -1268,17 +1391,4 @@ fn configured_cooked_dir_string() -> Result<Option<String>> {
     Ok(PathService::new(DatabaseService::for_current_user()?)
         .configured_cooked_dir()?
         .map(|value| value.display().to_string()))
-}
-
-fn print_stub_with_value(command: &str, value: String) -> Result<()> {
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&json!({
-            "command": command,
-            "value": value,
-            "status": "skeleton-only",
-            "message": "Rust CLI contract created; implementation not ported yet."
-        }))?
-    );
-    Ok(())
 }

@@ -945,6 +945,7 @@ fn initialize_install_report(
         status: "blocked".to_string(),
         installed: false,
         installed_at: None,
+        restored_at: None,
         cooked_root: preview.configured_cooked_root.clone(),
         profile_backup_manifest_path: PathBuf::from(&preview.workspace_root)
             .join("backups")

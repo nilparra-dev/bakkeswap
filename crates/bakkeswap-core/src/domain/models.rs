@@ -276,6 +276,8 @@ pub struct InstallReport {
     pub status: String,
     pub installed: bool,
     pub installed_at: Option<DateTime<Utc>>,
+    #[serde(default)]
+    pub restored_at: Option<DateTime<Utc>>,
     pub cooked_root: String,
     pub profile_backup_manifest_path: String,
     pub original_backup_manifest_path: String,
@@ -284,6 +286,53 @@ pub struct InstallReport {
     pub files: Vec<InstalledFileRecord>,
     pub warnings: Vec<InstallWarning>,
     pub blockers: Vec<InstallBlocker>,
+    pub restore_command: String,
+    pub confirmation_phrase: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreWarning {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreBlocker {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreFileRecord {
+    pub kind: String,
+    pub relative_path: String,
+    pub backup_kind: String,
+    pub backup_source_path: String,
+    pub destination_path: String,
+    pub destination_exists: bool,
+    pub expected_sha256: String,
+    pub backup_sha256: Option<String>,
+    pub backup_hash_matches_expected: Option<bool>,
+    pub actual_restored_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RestoreReport {
+    pub plan_id: Option<String>,
+    pub plan_path: Option<String>,
+    pub profile_name: String,
+    pub status: String,
+    pub dry_run: bool,
+    pub from_originals: bool,
+    pub restored: bool,
+    pub restored_at: Option<DateTime<Utc>>,
+    pub cooked_root: String,
+    pub install_manifest_path: Option<String>,
+    pub profile_backup_manifest_path: String,
+    pub original_backup_manifest_path: String,
+    pub files: Vec<RestoreFileRecord>,
+    pub warnings: Vec<RestoreWarning>,
+    pub blockers: Vec<RestoreBlocker>,
     pub restore_command: String,
     pub confirmation_phrase: String,
 }

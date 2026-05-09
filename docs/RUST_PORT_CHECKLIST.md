@@ -46,7 +46,7 @@
 - [x] Implement per-profile backup manager
 - [x] Implement dry-run install preview
 - [x] Implement explicit confirmation for real install
-- [ ] Implement restore by profile
+- [x] Implement restore by profile
 - [x] Implement original backup verification
 
 ## CLI Parity
@@ -66,7 +66,7 @@
 - [x] Implement `build`
 - [x] Implement `install --dry-run`
 - [x] Implement `install`
-- [ ] Implement `restore --profile`
+- [x] Implement `restore --profile`
 - [x] Implement `status`
 - [x] Implement `backup originals status`
 - [x] Implement `backup originals verify`
@@ -84,6 +84,7 @@
 - [ ] Laser Wave III on Gaseous passes in sandbox
 - [x] Automated tests never touch real CookedPCConsole
 - [x] Sandbox install tests pass
+- [x] Sandbox restore tests pass
 
 ## GUI
 

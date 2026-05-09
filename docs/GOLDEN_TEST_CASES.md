@@ -73,6 +73,24 @@ Before real local install is considered usable, the confirmed install path must 
 10. `installed_swaps` is written when the plan exists in SQLite
 11. unsafe target filenames that attempt path escape are blocked
 
+## Phase 4D Restore Gate
+
+Before restore is considered usable, the confirmation-gated restore path must pass these synthetic checks:
+
+1. restore dry-run reports exact files, destinations, backup paths, and hash state without writing files
+2. successful profile restore copies files back from `workspace/backups/<profile_name>/`
+3. wrong confirmation blocks restore
+4. missing confirmation blocks restore
+5. missing profile backup files block restore
+6. tampered profile backup hashes block restore
+7. path escape attempts in restore manifests are blocked
+8. restored destination hashes are verified after copy
+9. `install_manifest.json` is updated with `restored_at` when it exists
+10. saved plan JSON is updated to `install_status = restored` when available
+11. `installed_swaps` is updated with `restored_at` and `active = 0` when the plan exists in SQLite
+12. original-backup fallback is refused unless `--from-originals` and `RESTORE ORIGINALS <profile_name>` are both present
+13. emergency original-backup fallback succeeds in sandbox when the profile backup is missing but originals are still valid
+
 ## Phase 4B Backup Manager Gate
 
 Before any real install path exists, the backup managers must pass these synthetic checks:
@@ -183,9 +201,10 @@ Required assertions:
 - tests write plans and builds under a temporary workspace
 - tests may also write builds under an explicit temporary sandbox output root
 - tests may execute confirmation-gated install only against temporary sandbox cooked roots
+- tests may execute confirmation-gated restore only against temporary sandbox cooked roots
 - tests fail fast on any missing local file or validation mismatch
 - planner-only tests may stop before build/install as long as blockers and warnings are explicit and correct
 
 ## Minimum Release Gate
 
-The Rust rewrite is not at feature parity until all six golden cases pass in a sandbox and the preview-plus-confirmed-install path remains explicit, sandbox-safe, and correct.
+The Rust rewrite is not at feature parity until all six golden cases pass in a sandbox and the preview-plus-confirmed install and restore paths remain explicit, sandbox-safe, and correct.
