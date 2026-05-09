@@ -18,12 +18,15 @@
 
 ## Release Folder
 
-- create `dist/beta/BakkesSwap-v0.1.0-beta/`
+- recreate `dist/beta/BakkesSwap-v0.1.0-beta/` after frontend builds because `npm run build` refreshes `dist/`
 - copy Windows bundle artifacts into the folder
 - include `README.md`
 - include `OFFLINE_ONLY_WARNING.md`
 - include `docs/SAFETY_MODEL.md`
 - include `docs/GUI_UX_FLOW.md`
+- include `docs/UI_STYLE_GUIDE.md`
+- include `docs/PHASE_6C_UI_MICROPOLISH_STATUS.md`
+- include `docs/screenshots/` if you want screenshot-backed beta collateral
 - include `docs/BUILDING_FROM_SOURCE.md` if useful for testers
 - include `QUICK_START.md`
 
@@ -43,6 +46,14 @@
 - confirm Backups loads as ready
 - confirm Diagnostics loads with sandbox-local paths
 - confirm Logs shows the expected command sequence
+
+## Screenshot Capture
+
+- run the live sandbox app with `BAKKESWAP_APP_HOME=target/gui_smoke/app_home`
+- expose WebView2 debugging with `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9224`
+- run `./scripts/capture_docs_screenshots.ps1`
+- confirm `docs/screenshots/` contains the current Home, Game Folder, Quick Swap, Install Preview, Active Swaps, Backups, Diagnostics, and Logs shots
+- confirm screenshots only show sandbox-local paths and no real machine state
 
 ## Optional Artifacts
 

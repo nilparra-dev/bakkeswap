@@ -2,7 +2,7 @@
 
 BakkesSwap is a local and offline visual item swapper for Rocket League package-backed cosmetics.
 
-This repository is the public Rust + Tauri + SQLite rewrite workspace. It now contains a stable Rust backend, a CLI, a usable desktop GUI, and a first local Windows beta package, but it is still a beta candidate rather than a finished public release.
+This repository is the public Rust + Tauri + SQLite rewrite workspace. It now contains a stable Rust backend, a CLI, a usable desktop GUI, a first local Windows beta package, and a Phase 6C screenshot-backed desktop polish pass, but it is still a beta candidate rather than a finished public release.
 
 ## What BakkesSwap Is
 
@@ -26,7 +26,7 @@ Other players will not see your local visual changes unless they independently m
 
 ## Current Status
 
-This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, a repeatable Phase 5B synthetic sandbox smoke flow, a completed Phase 5C human click-through polish pass for the desktop app, and a first local Phase 6 Windows beta package candidate.
+This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, a repeatable Phase 5B synthetic sandbox smoke flow, a completed Phase 5C human click-through polish pass for the desktop app, the Phase 6 Windows beta package candidate, and the Phase 6B and Phase 6C desktop-tool UI presentation passes.
 
 ### Completed
 
@@ -42,6 +42,8 @@ This repository now contains the stable backend phases through install and resto
 - Svelte screens for Home, Game Folder, Database, Quick Swap, Install Preview, Active Swaps, Backups, Diagnostics, and Logs
 - live Phase 5C desktop click-through polish against `target/gui_smoke`
 - local Windows beta bundle artifacts for the desktop app
+- Phase 6B desktop-tool shell polish for the Tauri app
+- Phase 6C micro-polish, permanent sandbox screenshot gallery, and beta presentation docs
 - beta packaging docs, offline-only warning collateral, and assembled beta folder output under `dist/beta`
 - architecture, migration, schema, safety, and phase-status docs
 
@@ -141,9 +143,25 @@ Do not commit personal machine paths, real game files, inventory dumps, or gener
 - `docs/PHASE_5B_GUI_SANDBOX_SMOKE_STATUS.md`
 - `docs/PHASE_5C_HUMAN_GUI_CLICKTHROUGH_STATUS.md`
 - `docs/PHASE_6_PACKAGING_STATUS.md`
+- `docs/UI_STYLE_GUIDE.md`
+- `docs/PHASE_6B_DESKTOP_TOOL_UI_STATUS.md`
+- `docs/PHASE_6C_UI_MICROPOLISH_STATUS.md`
 - `docs/PACKAGING_WINDOWS.md`
 - `docs/BETA_RELEASE_CHECKLIST.md`
 - `docs/QUICK_START_BETA.md`
+
+## Desktop Screenshots
+
+Sandbox-only screenshots captured from the live Tauri app are stored under `docs/screenshots/`.
+
+- `docs/screenshots/home.png`
+- `docs/screenshots/game_folder.png`
+- `docs/screenshots/quick_swap.png`
+- `docs/screenshots/install_preview.png`
+- `docs/screenshots/active_swaps.png`
+- `docs/screenshots/backups.png`
+- `docs/screenshots/diagnostics.png`
+- `docs/screenshots/logs.png`
 
 ## Contributing
 

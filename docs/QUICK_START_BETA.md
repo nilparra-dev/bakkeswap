@@ -20,14 +20,27 @@ Other players do not see your local file changes.
 5. Validate the path and save it.
 6. Open Database.
 7. Import a fake dump folder such as `target/gui_smoke/codered_dumps`.
-8. Refresh DB.
+8. Refresh database.
 9. Open Quick Swap.
-10. Search TARGET `Target Decal`.
-11. Search SOURCE `Source Decal`.
+10. Search TARGET `Target Decal` or `1001`.
+11. Search SOURCE `Source Decal` or `1002`.
 12. Create a plan and build it.
-13. Open Install Preview and read the confirmation phrase.
+13. Open Install Preview, review the affected files, and read the confirmation phrase.
 14. Only confirm install against the sandbox path.
 15. Open Active Swaps and use restore preview and restore confirmation against the same sandbox path.
+
+## Screenshot Reference
+
+Use the sandbox screenshot set under `docs/screenshots/` as the expected visual reference for the current beta shell.
+
+- `screenshots/home.png`
+- `screenshots/game_folder.png`
+- `screenshots/quick_swap.png`
+- `screenshots/install_preview.png`
+- `screenshots/active_swaps.png`
+- `screenshots/backups.png`
+- `screenshots/diagnostics.png`
+- `screenshots/logs.png`
 
 ## What To Watch For
 

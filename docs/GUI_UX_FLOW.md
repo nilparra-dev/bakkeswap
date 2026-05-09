@@ -14,7 +14,7 @@
 - use a dark desktop-tool shell with a fixed left sidebar and compact top status bar
 - favor dense panels, tables, and utility rows over large hero sections or oversized cards
 - keep buttons small and tool-like, with clear enabled, disabled, and focus states
-- keep long Windows paths readable with truncation, scroll, and monospace presentation instead of uncontrolled wrapping
+- keep long Windows paths readable with sandbox-aware truncation and monospace presentation instead of uncontrolled wrapping or persistent mini-scrollbars
 - use compact status badges for runtime state, path posture, counts, and page state
 - keep warnings and blockers readable, but render them as compact utility panels instead of large banners whenever possible
 
@@ -59,21 +59,23 @@
 6. The selected-item cards show the product id, slot, quality, visual package, and thumbnail package without expanding into giant cards.
 7. Before plan creation, the GUI shows a compact compatibility and same-slot metadata preflight while keeping the backend as the source of truth.
 8. After both sides are selected, the user creates a plan, builds it, and can open install preview from the same tool row.
+9. The compatibility panel should always show the next required step in plain language so the workflow remains obvious during live demos and screenshots.
 
 ## Install Preview
 
 1. The user requests install preview for the current built plan.
 2. The backend returns blockers, warnings, file actions, and the exact confirmation phrase.
 3. The risky screen keeps the configured `CookedPCConsole` path visible at all times and presents itself like a confirmation tool window instead of a generic page.
-4. The GUI keeps the confirm action disabled until:
+4. The page should make the review order explicit: review files, type the exact backend-issued phrase, then confirm.
+5. The GUI keeps the confirm action disabled until:
    - preview status is ready
    - blockers are empty
    - the user types the exact backend-issued phrase
-5. If execution still returns a blocked install report, the GUI stays on Install Preview and surfaces the execution blockers instead of redirecting away.
-6. The preview keeps affected files and backup paths in compact table rows so long paths stay readable.
-7. The confirmation phrase is rendered prominently instead of being hidden in supporting text.
-8. Optional overwrite of an existing profile backup remains an explicit checkbox, not a silent default.
-9. Warning and blocker panels stay compact and high-contrast instead of turning into oversized page sections.
+6. If execution still returns a blocked install report, the GUI stays on Install Preview and surfaces the execution blockers instead of redirecting away.
+7. The preview keeps affected files and backup paths in compact table rows so long paths stay readable.
+8. The confirmation phrase is rendered prominently instead of being hidden in supporting text.
+9. Optional overwrite of an existing profile backup remains an explicit checkbox, not a silent default.
+10. Warning and blocker panels stay compact and high-contrast instead of turning into oversized page sections.
 
 ## Active Swaps And Restore
 
@@ -109,3 +111,4 @@
 - show the expected sandbox smoke command sequence so a human click-through can be checked against it quickly
 - render the session log in a terminal-like monospace panel
 - keep a simple copy action available for local debugging when the clipboard API is present
+- use short command-state markers such as `[RUN]`, `[OK]`, and `[ERR]` to improve scan speed in dense logs

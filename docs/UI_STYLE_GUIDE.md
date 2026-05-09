@@ -14,6 +14,7 @@ The shell should read closer to a BakkesMod-style settings window or dark ImGui 
 - dense but readable controls
 - compact panels and tables
 - clear status badges for runtime, path posture, and workflow state
+- screenshot-safe path presentation that keeps sandbox roots readable without exposing noisy absolute prefixes
 - smaller typography and tighter spacing than a web app landing page
 
 ## Layout Rules
@@ -51,6 +52,7 @@ The shell should read closer to a BakkesMod-style settings window or dark ImGui 
 
 - use `.status-badge` for short runtime or state indicators
 - badge text should stay short and avoid long profile names when possible
+- humanize backend tokens such as `preview_ready` before rendering them in the shell
 - use `.success`, `.warning`, and `.danger` only for meaningful state, not decoration
 
 ### Actions
@@ -63,15 +65,16 @@ The shell should read closer to a BakkesMod-style settings window or dark ImGui 
 ### Tables And Rows
 
 - use `.compact-table` for dense key/value and list layouts
-- truncate or scroll long path values instead of letting them explode row height
+- clip long path values into stable monospace labels instead of leaving persistent horizontal scrollers in normal tables
 - keep row actions visible and aligned
 
 ### Paths And Logs
 
 - use `.path-text` for long Windows paths
-- long paths should prefer monospace, truncation, or horizontal scroll
+- long paths should prefer monospace and stable truncation anchored around sandbox-relevant tails
 - use `.monospace-log` for session activity output
 - keep logs dark, high-contrast, and terminal-like
+- use short state tokens such as `[RUN]`, `[OK]`, and `[ERR]` when they improve scan speed
 
 ## Page-Specific Guidance
 
@@ -85,12 +88,14 @@ The shell should read closer to a BakkesMod-style settings window or dark ImGui 
 - always present TARGET on the left and SOURCE on the right
 - keep selected item cards compact and factual
 - keep compatibility and plan/build actions in one dense panel below the split columns
+- keep a visible next-step callout in the compatibility panel so the workflow still reads clearly in screenshots
 
 ### Install Preview
 
 - present the page like a confirmation tool window
 - keep file changes and backup paths in compact tables
 - keep blockers and warnings visible without turning the page into giant banners
+- keep the review flow explicit: review files, type the exact phrase, then confirm install
 
 ### Active Swaps
 
@@ -107,6 +112,7 @@ The shell should read closer to a BakkesMod-style settings window or dark ImGui 
 
 - keep the visual language close to a terminal panel
 - show timestamps, command names, and details in a stable monospace grid
+- keep the copy action visible but secondary to the console itself
 
 ## Hard Boundaries
 
