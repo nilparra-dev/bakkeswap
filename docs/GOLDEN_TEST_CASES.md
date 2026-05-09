@@ -56,7 +56,22 @@ Before any real install path exists, the install preview service must pass these
 3. missing built visual output returns a blocked preview
 4. missing CookedPCConsole destination file returns a blocked preview
 5. destination hash drift produces an explicit warning without writing files
-6. install without `--dry-run` refuses with the phase guard message
+
+## Phase 4C Install Execution Gate
+
+Before real local install is considered usable, the confirmed install path must pass these synthetic checks:
+
+1. missing confirmation returns a blocked install report and writes nothing
+2. wrong confirmation returns a blocked install report and writes nothing
+3. preview blockers prevent install execution and leave destination files unchanged
+4. visual-only install copies the rebuilt output into the sandbox cooked root and creates both backup sets
+5. visual plus thumbnail install updates both destination files and records both backup sets
+6. existing profile backup blocks install unless overwrite is explicitly enabled
+7. overwrite-enabled reinstall preserves the permanent original backup without replacing it
+8. `install_manifest.json` is written under `workspace/backups/<profile_name>/`
+9. saved plan JSON is updated with `install_status` and `last_install`
+10. `installed_swaps` is written when the plan exists in SQLite
+11. unsafe target filenames that attempt path escape are blocked
 
 ## Phase 4B Backup Manager Gate
 
@@ -167,10 +182,10 @@ Required assertions:
 - tests create a temporary sandbox cooked root
 - tests write plans and builds under a temporary workspace
 - tests may also write builds under an explicit temporary sandbox output root
-- tests use dry-run install only
+- tests may execute confirmation-gated install only against temporary sandbox cooked roots
 - tests fail fast on any missing local file or validation mismatch
 - planner-only tests may stop before build/install as long as blockers and warnings are explicit and correct
 
 ## Minimum Release Gate
 
-The Rust rewrite is not at feature parity until all six golden cases pass in a sandbox and the dry-run install preview remains explicit and correct.
+The Rust rewrite is not at feature parity until all six golden cases pass in a sandbox and the preview-plus-confirmed-install path remains explicit, sandbox-safe, and correct.

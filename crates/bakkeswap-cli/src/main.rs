@@ -1,3 +1,4 @@
+use std::io::{self, Write};
 use std::path::PathBuf;
 
 use anyhow::Result;
@@ -6,11 +7,13 @@ use bakkeswap_core::database::{
     SearchKind, SearchRequest,
 };
 use bakkeswap_core::domain::models::{
-    BackupResult, BackupVerificationResult, InstallPreview, PlanBuildReport, SwapPlan,
+    BackupResult, BackupVerificationResult, InstallPreview, InstallReport, PlanBuildReport,
+    SwapPlan,
 };
 use bakkeswap_core::services::{
-    BuildPlanRequest, BuildService, InstallPreviewRequest, InstallerService, PathService,
-    PermanentOriginalBackupManager, PlannerService, ProfileBackupManager, StatusService,
+    BuildPlanRequest, BuildService, InstallExecutionRequest, InstallPreviewRequest,
+    InstallerService, PathService, PermanentOriginalBackupManager, PlannerService,
+    ProfileBackupManager, StatusService,
 };
 use bakkeswap_core::upk::{
     rebuild_target_identity, KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest,
@@ -148,6 +151,10 @@ struct InstallArgs {
     plan: PathBuf,
     #[arg(long, default_value_t = false)]
     dry_run: bool,
+    #[arg(long)]
+    confirm: Option<String>,
+    #[arg(long, default_value_t = false)]
+    overwrite_profile_backup: bool,
     #[arg(long, default_value_t = false)]
     json: bool,
 }
@@ -422,21 +429,64 @@ fn command_build(args: BuildArgs) -> Result<()> {
 }
 
 fn command_install(args: InstallArgs) -> Result<()> {
-    let preview = InstallerService::new(DatabaseService::for_current_user()?).install(
-        &InstallPreviewRequest {
-            plan_path: args.plan,
-            dry_run: args.dry_run,
-            ..InstallPreviewRequest::default()
-        },
-    )?;
+    let database = DatabaseService::for_current_user()?;
+    let installer = InstallerService::new(database);
+    let plan_path = args.plan;
 
-    if args.json {
-        println!("{}", serde_json::to_string_pretty(&preview)?);
-    } else {
-        print_install_preview_summary(&preview);
+    if args.dry_run {
+        let preview = installer.preview_install(&InstallPreviewRequest {
+            plan_path,
+            dry_run: true,
+            ..InstallPreviewRequest::default()
+        })?;
+
+        if args.json {
+            println!("{}", serde_json::to_string_pretty(&preview)?);
+        } else {
+            print_install_preview_summary(&preview);
+        }
+
+        if preview.status != "preview_ready" {
+            std::process::exit(4);
+        }
+
+        return Ok(());
     }
 
-    if preview.status != "preview_ready" {
+    let mut confirmation = args.confirm;
+    if confirmation.is_none() && !args.json {
+        let preview = installer.preview_install(&InstallPreviewRequest {
+            plan_path: plan_path.clone(),
+            dry_run: true,
+            ..InstallPreviewRequest::default()
+        })?;
+
+        print_install_preview_summary(&preview);
+        if preview.status != "preview_ready" {
+            std::process::exit(4);
+        }
+
+        confirmation = prompt_install_confirmation(&preview.confirmation_phrase)?;
+        if confirmation.is_none() {
+            println!("Install cancelled.");
+            std::process::exit(4);
+        }
+    }
+
+    let report = installer.install(&InstallExecutionRequest {
+        plan_path,
+        confirmation,
+        overwrite_profile_backup: args.overwrite_profile_backup,
+        ..InstallExecutionRequest::default()
+    })?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print_install_report_summary(&report);
+    }
+
+    if report.status != "installed" && report.status != "installed_with_warnings" {
         std::process::exit(4);
     }
 
@@ -823,6 +873,82 @@ fn print_install_preview_summary(preview: &InstallPreview) {
     println!("Restore command: {}", preview.restore_command);
     println!("Confirmation phrase: {}", preview.confirmation_phrase);
     println!("Dry run only. No files were written to CookedPCConsole.");
+}
+
+fn print_install_report_summary(report: &InstallReport) {
+    println!("Install profile: {}", report.profile_name);
+    println!("Status: {}", report.status);
+    println!("CookedPCConsole: {}", report.cooked_root);
+    println!(
+        "Installed at: {}",
+        report
+            .installed_at
+            .map(|value| value.to_rfc3339())
+            .unwrap_or_else(|| "[not installed]".to_string())
+    );
+    println!(
+        "Profile backup manifest: {}",
+        report.profile_backup_manifest_path
+    );
+    println!(
+        "Original backup manifest: {}",
+        report.original_backup_manifest_path
+    );
+    println!(
+        "Install manifest: {}",
+        report
+            .install_manifest_path
+            .as_deref()
+            .unwrap_or("[not written]")
+    );
+    println!(
+        "Overwrite existing profile backup: {}",
+        yes_no(report.overwrite_profile_backup)
+    );
+    if report.blockers.is_empty() {
+        println!("Blockers: none");
+    } else {
+        println!("Blockers:");
+        for blocker in &report.blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if report.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {}", warning.message);
+        }
+    }
+    if report.files.is_empty() {
+        println!("Installed files: [none]");
+    } else {
+        println!("Installed files:");
+        for file in &report.files {
+            println!(
+                "  {}: {} <- {}",
+                file.kind, file.target_path, file.built_path
+            );
+        }
+    }
+    println!("Restore command: {}", report.restore_command);
+    println!("Confirmation phrase: {}", report.confirmation_phrase);
+}
+
+fn prompt_install_confirmation(phrase: &str) -> Result<Option<String>> {
+    println!("Type '{}' to continue, or press Enter to cancel.", phrase);
+    print!("confirm> ");
+    io::stdout().flush()?;
+
+    let mut input = String::new();
+    io::stdin().read_line(&mut input)?;
+    let value = input.trim().to_string();
+    if value.is_empty() {
+        return Ok(None);
+    }
+
+    Ok(Some(value))
 }
 
 fn print_backup_result_summary(result: &BackupResult) {

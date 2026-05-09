@@ -173,6 +173,10 @@ pub struct SwapPlan {
     pub build_blockers: Vec<PlanBlocker>,
     #[serde(default)]
     pub last_build: Option<PlanBuildReport>,
+    #[serde(default = "default_install_status")]
+    pub install_status: String,
+    #[serde(default)]
+    pub last_install: Option<InstallReport>,
     pub rollback_notes: Vec<String>,
     pub plan_path: String,
 }
@@ -249,6 +253,39 @@ pub struct InstallPreview {
     pub no_files_written: bool,
     pub warnings: Vec<InstallWarning>,
     pub blockers: Vec<InstallBlocker>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstalledFileRecord {
+    pub kind: String,
+    pub relative_path: String,
+    pub target_path: String,
+    pub built_path: String,
+    pub profile_backup_path: String,
+    pub original_backup_path: String,
+    pub original_sha256: Option<String>,
+    pub built_sha256: Option<String>,
+    pub installed_sha256: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallReport {
+    pub plan_id: String,
+    pub plan_path: String,
+    pub profile_name: String,
+    pub status: String,
+    pub installed: bool,
+    pub installed_at: Option<DateTime<Utc>>,
+    pub cooked_root: String,
+    pub profile_backup_manifest_path: String,
+    pub original_backup_manifest_path: String,
+    pub install_manifest_path: Option<String>,
+    pub overwrite_profile_backup: bool,
+    pub files: Vec<InstalledFileRecord>,
+    pub warnings: Vec<InstallWarning>,
+    pub blockers: Vec<InstallBlocker>,
+    pub restore_command: String,
+    pub confirmation_phrase: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -418,6 +455,10 @@ pub struct AppStatus {
 
 fn default_plan_status() -> String {
     "planned".to_string()
+}
+
+fn default_install_status() -> String {
+    "not_installed".to_string()
 }
 
 fn default_backup_schema_version() -> i64 {

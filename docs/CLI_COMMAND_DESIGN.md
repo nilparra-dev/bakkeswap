@@ -206,7 +206,6 @@ Purpose:
 Current implementation:
 
 - loads the saved `swap_plan.json`
-- requires `--dry-run` and refuses real install execution for this phase
 - verifies the saved plan and last build report are in a successful build state
 - verifies the current configured `CookedPCConsole` exists and resolves install destinations under it
 - verifies built outputs still exist and still match stored build validation hashes when available
@@ -223,25 +222,35 @@ Still deferred:
 - copying any files into `CookedPCConsole`
 - creating profile backups on disk
 - creating permanent original backups on disk
-- writing install manifests or install rows to SQLite
-- confirmation-gated real install execution
+- restore execution
 
-### `bakkeswap install --plan <plan_path>`
+### `bakkeswap install --plan <plan_path> [--confirm "INSTALL <profile_name>"] [--overwrite-profile-backup]`
 
 Purpose:
 
 - perform a real local install only after explicit operator confirmation
 
-Current behavior:
+Current implementation:
 
-- refuses with `Real install is not implemented yet. Use --dry-run.`
+- starts from a fresh install preview instead of trusting stale install state
+- blocks when the preview is not `preview_ready`
+- requires an exact confirmation phrase of the form `INSTALL <profile_name>`
+- supports `--confirm "INSTALL <profile_name>"` for non-interactive execution
+- prompts interactively for the confirmation phrase when `--confirm` is omitted in human-readable mode
+- prepares permanent original backups before any file replacement
+- prepares per-profile backups before any file replacement
+- refuses existing profile backup reuse unless `--overwrite-profile-backup` is set
+- copies validated built outputs into the configured cooked root only after the backup preflight passes
+- verifies installed destination hashes against the built outputs after copy
+- writes `workspace/backups/<profile_name>/install_manifest.json`
+- updates the saved plan JSON with `install_status` and `last_install`
+- writes `installed_swaps` metadata when the plan already exists in SQLite
 
-Required future behavior:
+Still deferred:
 
-- verify permanent original backups
-- create profile backups
-- copy validated built outputs into the configured cooked root
-- record install manifest
+- restore execution
+- any automated test or workflow that targets a real Rocket League install path
+- any install path that bypasses preview or backup preflight
 
 ### `bakkeswap restore --profile <profile_name>`
 

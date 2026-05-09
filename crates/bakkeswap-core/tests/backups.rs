@@ -410,6 +410,7 @@ fn build_plan(
         } else {
             "blocked".to_string()
         },
+        install_status: "not_installed".to_string(),
         target_product: planned_product(
             1001,
             "Target Product",
@@ -429,6 +430,7 @@ fn build_plan(
         warnings: Vec::new(),
         build_blockers,
         last_build: None,
+        last_install: None,
         rollback_notes: Vec::new(),
         plan_path: plan_path.display().to_string(),
     }

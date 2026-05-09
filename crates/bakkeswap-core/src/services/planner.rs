@@ -219,6 +219,8 @@ impl PlannerService {
             warnings,
             build_blockers,
             last_build: None,
+            install_status: "not_installed".to_string(),
+            last_install: None,
             rollback_notes,
             plan_path: plan_path.display().to_string(),
         };

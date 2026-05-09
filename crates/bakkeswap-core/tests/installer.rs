@@ -4,10 +4,12 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, Result};
 use bakkeswap_core::database::DatabaseService;
 use bakkeswap_core::domain::models::{
-    CompatibilityCheck, PlanBlocker, PlannedProduct, SwapOperation, SwapPlan,
+    CompatibilityCheck, InstallReport, OriginalBackupManifest, PlanBlocker, PlannedProduct,
+    ProfileBackupManifest, SwapOperation, SwapPlan,
 };
 use bakkeswap_core::services::{
-    BuildPlanRequest, BuildService, InstallPreviewRequest, InstallerService,
+    BuildPlanRequest, BuildService, InstallExecutionRequest, InstallPreviewRequest,
+    InstallerService, ProfileBackupManager,
 };
 use bakkeswap_core::upk::compression::{
     compress_body_to_chunk, serialize_rl_compressed_chunks, DEFAULT_RL_BLOCK_SIZE,
@@ -18,12 +20,14 @@ use bakkeswap_core::upk::{
     RocketLeagueCompressedChunk,
 };
 use chrono::Utc;
+use rusqlite::params;
 use sha2::{Digest, Sha256};
 use tempfile::TempDir;
 
 const DEFAULT_TEST_GARBAGE_SIZE: i32 = 32;
 
 struct PreviewFixture {
+    profile_name: String,
     database: DatabaseService,
     plan_path: PathBuf,
     cooked_root: PathBuf,
@@ -31,6 +35,7 @@ struct PreviewFixture {
     visual_destination_path: PathBuf,
     thumbnail_destination_path: Option<PathBuf>,
     visual_output_path: PathBuf,
+    thumbnail_output_path: Option<PathBuf>,
     visual_profile_backup_path: PathBuf,
     thumbnail_profile_backup_path: Option<PathBuf>,
     visual_original_backup_path: PathBuf,
@@ -164,23 +169,254 @@ fn destination_hash_drift_adds_warning() {
 }
 
 #[test]
-fn install_requires_dry_run_for_now() {
-    let (_temp, fixture) = prepare_preview_fixture("dry_run_required_profile", false, false);
+fn install_requires_confirmation_before_writing_files() {
+    let (_temp, fixture) = prepare_preview_fixture("confirmation_required_profile", false, false);
+    let before_hash = hash_path(&fixture.visual_destination_path);
 
-    let error = InstallerService::new(fixture.database.clone())
-        .install(&InstallPreviewRequest {
-            plan_path: fixture.plan_path.clone(),
-            configured_cooked_root: Some(fixture.cooked_root.clone()),
-            workspace_root: Some(fixture.workspace_root.clone()),
-            dry_run: false,
-            ..InstallPreviewRequest::default()
-        })
-        .unwrap_err();
+    let report = execute_install(&fixture, None, false);
 
+    assert_eq!(report.status, "blocked");
+    assert!(!report.installed);
+    assert!(report
+        .blockers
+        .iter()
+        .any(|blocker| blocker.code == "confirmation_required"));
+    assert_eq!(hash_path(&fixture.visual_destination_path), before_hash);
+    assert!(!fixture.visual_profile_backup_path.exists());
+    assert!(!fixture.visual_original_backup_path.exists());
+}
+
+#[test]
+fn install_rejects_wrong_confirmation_phrase() {
+    let (_temp, fixture) = prepare_preview_fixture("wrong_confirmation_profile", false, false);
+    let before_hash = hash_path(&fixture.visual_destination_path);
+
+    let report = execute_install(&fixture, Some("INSTALL nope".to_string()), false);
+
+    assert_eq!(report.status, "blocked");
+    assert!(!report.installed);
+    assert!(report
+        .blockers
+        .iter()
+        .any(|blocker| blocker.code == "confirmation_mismatch"));
+    assert_eq!(hash_path(&fixture.visual_destination_path), before_hash);
+}
+
+#[test]
+fn preview_blockers_prevent_install_execution() {
+    let (_temp, fixture) = prepare_preview_fixture("blocked_install_profile", false, false);
+    let before_hash = hash_path(&fixture.visual_destination_path);
+    fs::remove_file(&fixture.visual_output_path).unwrap();
+
+    let report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+
+    assert_eq!(report.status, "blocked");
+    assert!(!report.installed);
+    assert!(report
+        .blockers
+        .iter()
+        .any(|blocker| blocker.code == "visual_built_output_missing"));
+    assert_eq!(hash_path(&fixture.visual_destination_path), before_hash);
+    assert!(!fixture.visual_profile_backup_path.exists());
+    assert!(!fixture.visual_original_backup_path.exists());
+}
+
+#[test]
+fn installs_visual_only_and_updates_backups_manifest_and_plan() {
+    let (_temp, fixture) = prepare_preview_fixture("install_visual_only_profile", false, false);
+    let destination_hash_before = hash_path(&fixture.visual_destination_path);
+    let built_hash = hash_path(&fixture.visual_output_path);
+
+    let report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+
+    assert!(report.installed);
+    assert_eq!(report.status, "installed_with_warnings");
+    assert!(report
+        .warnings
+        .iter()
+        .any(|warning| warning.code == "install_metadata_plan_not_persisted"));
+    assert_eq!(hash_path(&fixture.visual_destination_path), built_hash);
     assert_eq!(
-        error.to_string(),
-        "Real install is not implemented yet. Use --dry-run."
+        hash_path(&fixture.visual_profile_backup_path),
+        destination_hash_before
     );
+    assert_eq!(
+        hash_path(&fixture.visual_original_backup_path),
+        destination_hash_before
+    );
+
+    let original_manifest: OriginalBackupManifest = serde_json::from_str(
+        &fs::read_to_string(
+            fixture
+                .workspace_root
+                .join("original_files_backup")
+                .join("manifest.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(original_manifest
+        .files
+        .contains_key("TargetIdentity_SF.upk"));
+
+    let profile_manifest: ProfileBackupManifest = serde_json::from_str(
+        &fs::read_to_string(
+            fixture
+                .workspace_root
+                .join("backups")
+                .join(&fixture.profile_name)
+                .join("manifest.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(profile_manifest.files.contains_key("TargetIdentity_SF.upk"));
+
+    let install_manifest_path = PathBuf::from(report.install_manifest_path.as_ref().unwrap());
+    assert!(install_manifest_path.exists());
+    let persisted_report: InstallReport =
+        serde_json::from_str(&fs::read_to_string(&install_manifest_path).unwrap()).unwrap();
+    assert_eq!(persisted_report.status, report.status);
+    assert_eq!(persisted_report.plan_id, report.plan_id);
+
+    let saved_plan = read_plan(&fixture.plan_path);
+    assert_eq!(saved_plan.install_status, "installed");
+    assert_eq!(
+        saved_plan.last_install.as_ref().unwrap().status,
+        report.status
+    );
+}
+
+#[test]
+fn installs_visual_and_thumbnail_outputs() {
+    let (_temp, fixture) = prepare_preview_fixture("install_visual_thumbnail_profile", true, false);
+    let visual_hash_before = hash_path(&fixture.visual_destination_path);
+    let thumbnail_destination_path = fixture.thumbnail_destination_path.as_ref().unwrap();
+    let thumbnail_hash_before = hash_path(thumbnail_destination_path);
+    let thumbnail_output_path = fixture.thumbnail_output_path.as_ref().unwrap();
+
+    let report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+
+    assert!(report.installed);
+    assert_eq!(report.files.len(), 2);
+    assert_eq!(
+        hash_path(&fixture.visual_destination_path),
+        hash_path(&fixture.visual_output_path)
+    );
+    assert_eq!(
+        hash_path(thumbnail_destination_path),
+        hash_path(thumbnail_output_path)
+    );
+    assert_eq!(
+        hash_path(&fixture.visual_profile_backup_path),
+        visual_hash_before
+    );
+    assert_eq!(
+        hash_path(fixture.thumbnail_profile_backup_path.as_ref().unwrap()),
+        thumbnail_hash_before
+    );
+    assert_eq!(
+        hash_path(&fixture.visual_original_backup_path),
+        visual_hash_before
+    );
+    assert_eq!(
+        hash_path(fixture.thumbnail_original_backup_path.as_ref().unwrap()),
+        thumbnail_hash_before
+    );
+}
+
+#[test]
+fn existing_profile_backup_blocks_install_without_overwrite() {
+    let (_temp, fixture) = prepare_preview_fixture("profile_backup_block_profile", false, false);
+    let preview = preview_install(&fixture);
+    let before_hash = hash_path(&fixture.visual_destination_path);
+
+    ProfileBackupManager::new(fixture.database.clone())
+        .prepare_from_preview(&preview, false)
+        .unwrap();
+
+    let report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+
+    assert_eq!(report.status, "blocked");
+    assert!(report
+        .blockers
+        .iter()
+        .any(|blocker| { blocker.code == "profile_backup_prepare_profile_backup_already_exists" }));
+    assert_eq!(hash_path(&fixture.visual_destination_path), before_hash);
+}
+
+#[test]
+fn overwrite_existing_profile_backup_allows_reinstall_and_keeps_original_backup() {
+    let (_temp, fixture) =
+        prepare_preview_fixture("profile_backup_overwrite_profile", false, false);
+
+    let first_report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+    assert!(first_report.installed);
+    let original_backup_hash = hash_path(&fixture.visual_original_backup_path);
+
+    let second_report = execute_install(&fixture, Some(expected_confirmation(&fixture)), true);
+
+    assert!(second_report.installed);
+    assert_eq!(
+        hash_path(&fixture.visual_original_backup_path),
+        original_backup_hash
+    );
+}
+
+#[test]
+fn persists_install_metadata_when_plan_exists_in_database() {
+    let (_temp, fixture) = prepare_preview_fixture("persisted_install_profile", false, false);
+    persist_plan_in_database(&fixture.database, &fixture.plan_path);
+
+    let report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+
+    assert_eq!(report.status, "installed");
+    assert!(report.warnings.is_empty());
+
+    let connection = fixture.database.connect().unwrap();
+    let (profile_name, active, dry_run_only, manifest_path): (String, i64, i64, Option<String>) =
+        connection
+            .query_row(
+                "SELECT profile_name, active, dry_run_only, manifest_path
+                 FROM installed_swaps
+                 WHERE plan_id = ?1",
+                params![report.plan_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+    assert_eq!(profile_name, fixture.profile_name);
+    assert_eq!(active, 1);
+    assert_eq!(dry_run_only, 0);
+    assert_eq!(
+        manifest_path.as_deref(),
+        report.install_manifest_path.as_deref()
+    );
+}
+
+#[test]
+fn unsafe_target_filename_blocks_install_path_escape() {
+    let (_temp, fixture) = prepare_preview_fixture("escape_guard_profile", false, false);
+    let mut plan = read_plan(&fixture.plan_path);
+    let outside_path = fixture.cooked_root.parent().unwrap().join("escape.upk");
+    plan.operations
+        .iter_mut()
+        .find(|operation| operation.kind == "visual")
+        .unwrap()
+        .target_filename = Some("../escape.upk".to_string());
+    fs::write(
+        &fixture.plan_path,
+        format!("{}\n", serde_json::to_string_pretty(&plan).unwrap()),
+    )
+    .unwrap();
+
+    let report = execute_install(&fixture, Some(expected_confirmation(&fixture)), false);
+
+    assert_eq!(report.status, "blocked");
+    assert!(report
+        .blockers
+        .iter()
+        .any(|blocker| blocker.code == "visual_target_filename_invalid"));
+    assert!(!outside_path.exists());
 }
 
 fn preview_install(fixture: &PreviewFixture) -> bakkeswap_core::domain::models::InstallPreview {
@@ -193,6 +429,27 @@ fn preview_install(fixture: &PreviewFixture) -> bakkeswap_core::domain::models::
             ..InstallPreviewRequest::default()
         })
         .unwrap()
+}
+
+fn execute_install(
+    fixture: &PreviewFixture,
+    confirmation: Option<String>,
+    overwrite_profile_backup: bool,
+) -> InstallReport {
+    InstallerService::new(fixture.database.clone())
+        .install(&InstallExecutionRequest {
+            plan_path: fixture.plan_path.clone(),
+            configured_cooked_root: Some(fixture.cooked_root.clone()),
+            workspace_root: Some(fixture.workspace_root.clone()),
+            confirmation,
+            overwrite_profile_backup,
+            ..InstallExecutionRequest::default()
+        })
+        .unwrap()
+}
+
+fn expected_confirmation(fixture: &PreviewFixture) -> String {
+    format!("INSTALL {}", fixture.profile_name)
 }
 
 fn prepare_preview_fixture(
@@ -280,6 +537,7 @@ fn prepare_preview_fixture(
         .unwrap();
 
     let visual_output_path = PathBuf::from(report.visual_output_path.unwrap());
+    let thumbnail_output_path = report.thumbnail_output_path.as_deref().map(PathBuf::from);
     let visual_profile_backup_path = workspace_root
         .join("backups")
         .join(profile_name)
@@ -302,6 +560,7 @@ fn prepare_preview_fixture(
     (
         temp,
         PreviewFixture {
+            profile_name: profile_name.to_string(),
             database,
             plan_path,
             cooked_root,
@@ -309,6 +568,7 @@ fn prepare_preview_fixture(
             visual_destination_path,
             thumbnail_destination_path,
             visual_output_path,
+            thumbnail_output_path,
             visual_profile_backup_path,
             thumbnail_profile_backup_path,
             visual_original_backup_path,
@@ -357,6 +617,7 @@ fn build_plan(
         } else {
             "blocked".to_string()
         },
+        install_status: "not_installed".to_string(),
         target_product: planned_product(
             1001,
             "Target Product",
@@ -376,6 +637,7 @@ fn build_plan(
         warnings: Vec::new(),
         build_blockers,
         last_build: None,
+        last_install: None,
         rollback_notes: Vec::new(),
         plan_path: plan_path.display().to_string(),
     }
@@ -461,6 +723,74 @@ fn write_plan_file(database: &DatabaseService, plan: SwapPlan) -> PathBuf {
     .unwrap();
     let _ = database;
     plan_path
+}
+
+fn read_plan(plan_path: &Path) -> SwapPlan {
+    serde_json::from_str(&fs::read_to_string(plan_path).unwrap()).unwrap()
+}
+
+fn persist_plan_in_database(database: &DatabaseService, plan_path: &Path) {
+    let plan = read_plan(plan_path);
+    let connection = database.connect().unwrap();
+    let timestamp = Utc::now().to_rfc3339();
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO products (product_id, name, updated_at) VALUES (?1, ?2, ?3)",
+            params![
+                plan.target_product.id,
+                plan.target_product.name,
+                timestamp.clone()
+            ],
+        )
+        .unwrap();
+    connection
+        .execute(
+            "INSERT OR IGNORE INTO products (product_id, name, updated_at) VALUES (?1, ?2, ?3)",
+            params![
+                plan.source_product.id,
+                plan.source_product.name,
+                timestamp.clone()
+            ],
+        )
+        .unwrap();
+
+    let visual_operation = plan
+        .operations
+        .iter()
+        .find(|operation| operation.kind == "visual");
+    let thumbnail_operation = plan
+        .operations
+        .iter()
+        .find(|operation| operation.kind == "thumbnail");
+
+    connection
+        .execute(
+            "INSERT INTO swap_plans (
+                plan_id, profile_name, target_product_id, source_product_id,
+                target_visual_upk, target_thumb_upk, source_visual_upk, source_thumb_upk,
+                target_visual_identity, target_thumb_identity, build_method, plan_path,
+                cooked_root, notes_json, created_at, status
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
+            params![
+                plan.plan_id,
+                plan.profile_name,
+                plan.target_product.id,
+                plan.source_product.id,
+                plan.target_product.visual_upk,
+                plan.target_product.thumb_upk,
+                plan.source_product.visual_upk,
+                plan.source_product.thumb_upk,
+                visual_operation.and_then(|operation| operation.target_identity.clone()),
+                thumbnail_operation.and_then(|operation| operation.target_identity.clone()),
+                "sandbox_rebuild",
+                plan.plan_path,
+                plan.configured_cooked_root,
+                serde_json::to_string(&serde_json::json!({})).unwrap(),
+                plan.created_at.to_rfc3339(),
+                plan.status,
+            ],
+        )
+        .unwrap();
 }
 
 fn hash_bytes(bytes: &[u8]) -> String {

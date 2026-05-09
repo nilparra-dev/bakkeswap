@@ -411,6 +411,7 @@ fn write_plan_file(plan_path: &Path, plan: &SwapPlan) -> Result<()> {
 fn plan_notes_json(plan: &SwapPlan) -> Result<String> {
     Ok(serde_json::to_string(&json!({
         "status": plan.status,
+        "install_status": plan.install_status,
         "warnings": plan.warnings,
         "build_blockers": plan.build_blockers,
         "compatibility": plan.compatibility,
@@ -419,6 +420,7 @@ fn plan_notes_json(plan: &SwapPlan) -> Result<String> {
         "configured_cooked_root": plan.configured_cooked_root,
         "rollback_notes": plan.rollback_notes,
         "last_build": plan.last_build,
+        "last_install": plan.last_install,
     }))?)
 }
 

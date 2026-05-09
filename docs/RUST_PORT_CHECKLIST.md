@@ -45,7 +45,7 @@
 - [x] Implement permanent original backup manager
 - [x] Implement per-profile backup manager
 - [x] Implement dry-run install preview
-- [ ] Implement explicit confirmation for real install
+- [x] Implement explicit confirmation for real install
 - [ ] Implement restore by profile
 - [x] Implement original backup verification
 
@@ -65,7 +65,7 @@
 - [x] Implement `upk rebuild-sandbox`
 - [x] Implement `build`
 - [x] Implement `install --dry-run`
-- [ ] Implement `install`
+- [x] Implement `install`
 - [ ] Implement `restore --profile`
 - [x] Implement `status`
 - [x] Implement `backup originals status`
@@ -83,6 +83,7 @@
 - [ ] Lunation on 20XX passes in sandbox
 - [ ] Laser Wave III on Gaseous passes in sandbox
 - [x] Automated tests never touch real CookedPCConsole
+- [x] Sandbox install tests pass
 
 ## GUI
 
