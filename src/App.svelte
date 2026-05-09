@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onDestroy, onMount } from "svelte";
+  import { get } from "svelte/store";
 
   import NoticeGroup from "./lib/components/NoticeGroup.svelte";
   import { appStore } from "./lib/store";
@@ -63,11 +64,21 @@
     diagnostics: null,
     logs: null,
   };
+  let currentPage = pages[0];
+  let logCopyState: "idle" | "copied" | "failed" = "idle";
+  let logCopyResetHandle: number | null = null;
+
+  onDestroy(() => {
+    if (typeof window !== "undefined" && logCopyResetHandle !== null) {
+      window.clearTimeout(logCopyResetHandle);
+    }
+  });
 
   $: selectedSwap =
     $appStore.restore.installed_swaps.find(
       (swap) => swap.profile_name === $appStore.restore.selected_profile_name,
     ) ?? null;
+  $: currentPage = pages.find((page) => page.id === $appStore.active_page) ?? pages[0];
 
   $: configuredCookedPath =
     $appStore.config?.cooked_dir ?? $appStore.app_status?.configured_cooked_dir ?? null;
@@ -111,7 +122,7 @@
         : "Configured"
       : "Needs setup",
     database: $appStore.app_status ? `${$appStore.app_status.product_count} items` : null,
-    "quick-swap": $appStore.quick_swap.plan?.profile_name ?? null,
+    "quick-swap": $appStore.quick_swap.build_report?.status ?? ($appStore.quick_swap.plan ? "planned" : null),
     "install-preview": $appStore.quick_swap.install_preview?.status ?? null,
     "active-swaps": $appStore.app_status ? `${$appStore.app_status.active_swap_count} active` : null,
     backups: $appStore.backups.status
@@ -133,6 +144,10 @@
       return value;
     }
     return `${value.slice(0, 28)}...${value.slice(-36)}`;
+  }
+
+  function displayPath(value: string | null | undefined): string {
+    return value ?? "Not configured";
   }
 
   function formatDate(value: string | null | undefined): string {
@@ -313,6 +328,41 @@
   function inputChecked(event: Event): boolean {
     return (event.currentTarget as HTMLInputElement).checked;
   }
+
+  function queueLogCopyReset(): void {
+    if (typeof window === "undefined") {
+      return;
+    }
+    if (logCopyResetHandle !== null) {
+      window.clearTimeout(logCopyResetHandle);
+    }
+    logCopyResetHandle = window.setTimeout(() => {
+      logCopyState = "idle";
+      logCopyResetHandle = null;
+    }, 1800);
+  }
+
+  async function copyLogsToClipboard(): Promise<void> {
+    const logEntries = get(appStore).logs;
+    if (logEntries.length === 0 || typeof navigator === "undefined" || !navigator.clipboard) {
+      logCopyState = "failed";
+      queueLogCopyReset();
+      return;
+    }
+
+    const text = logEntries
+      .map((log) => `${formatDate(log.at)} [${log.kind.toUpperCase()}] ${log.command} :: ${log.detail}`)
+      .join("\n");
+
+    try {
+      await navigator.clipboard.writeText(text);
+      logCopyState = "copied";
+    } catch {
+      logCopyState = "failed";
+    }
+
+    queueLogCopyReset();
+  }
 </script>
 
 <svelte:head>
@@ -325,62 +375,90 @@
 
 <div class="shell">
   <aside class="sidebar">
-    <div class="brand">
-      <div>
+    <section class="panel brand">
+      <div class="brand-copy">
         <p class="eyebrow">BakkesSwap</p>
-        <h1>Desktop Control Room</h1>
+        <h1>Desktop Utility</h1>
+        <p class="sidebar-copy">
+          Compact local control surface for TARGET, SOURCE, plan, build, install, restore, and
+          backup workflows. Backend logic stays in Rust.
+        </p>
       </div>
-      <p class="sidebar-copy">
-        TARGET is the item you already own or equip. SOURCE is the item you want to see locally.
-        All plan, build, install, restore, and backup logic stays in Rust.
-      </p>
-    </div>
-
-    <nav class="nav">
-      {#each pages as page}
-        <button
-          type="button"
-          class:active={page.id === $appStore.active_page}
-          aria-pressed={page.id === $appStore.active_page}
-          on:click={() => appStore.setActivePage(page.id)}
-        >
-          <span>{page.label}</span>
-          {#if pageBadges[page.id]}
-            <small>{pageBadges[page.id]}</small>
-          {/if}
-        </button>
-      {/each}
-    </nav>
-
-    <section class="sidebar-panel">
-      <div class="sidebar-panel-heading">
-        <h2>Bridge</h2>
-        <span class={`status-chip ${$appStore.tauri_available ? "ok" : "danger"}`}>
+      <div class="tool-row compact-wrap">
+        <span class={`status-badge ${$appStore.tauri_available ? "ok" : "danger"}`}>
           {$appStore.tauri_available ? "Tauri ready" : "Browser only"}
+        </span>
+        <span class="status-badge neutral">Offline only</span>
+      </div>
+    </section>
+
+    <section class="panel nav-panel">
+      <div class="panel-header compact-header">
+        <div>
+          <p class="panel-label">Navigation</p>
+          <h2>Tool sections</h2>
+        </div>
+        <span class="status-badge neutral">{pages.length} pages</span>
+      </div>
+
+      <nav class="nav">
+        {#each pages as page}
+          <button
+            type="button"
+            class:active={page.id === $appStore.active_page}
+            aria-pressed={page.id === $appStore.active_page}
+            on:click={() => appStore.setActivePage(page.id)}
+          >
+            <div class="nav-copy">
+              <span class="nav-title">{page.label}</span>
+              <small>{page.detail}</small>
+            </div>
+            {#if pageBadges[page.id]}
+              <span class="status-badge neutral nav-badge">{pageBadges[page.id]}</span>
+            {/if}
+          </button>
+        {/each}
+      </nav>
+    </section>
+
+    <section class="panel sidebar-panel">
+      <div class="panel-header compact-header">
+        <div>
+          <p class="panel-label">Bridge</p>
+          <h2>Desktop runtime</h2>
+        </div>
+        <span class={`status-badge ${$appStore.tauri_available ? "ok" : "danger"}`}>
+          {$appStore.tauri_available ? "Bridge live" : "Bridge offline"}
         </span>
       </div>
       <p>
         {$appStore.tauri_available
-          ? "Frontend actions call bakkeswap-core through Tauri commands. The GUI does not reimplement planner or installer logic."
-          : "Run with npm run tauri:dev to enable the Rust backend and folder picker."}
+          ? "Frontend actions invoke Tauri commands. Planner, builder, installer, restore, and backup behavior remain backend-owned."
+          : "Run with npm run tauri:dev to enable the Rust backend and native folder picker."}
       </p>
     </section>
 
-    <section class="sidebar-panel">
-      <div class="sidebar-panel-heading">
-        <h2>Current path</h2>
-        <span class={`status-chip ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
+    <section class="panel sidebar-panel">
+      <div class="panel-header compact-header">
+        <div>
+          <p class="panel-label">Current path</p>
+          <h2>CookedPCConsole</h2>
+        </div>
+        <span class={`status-badge ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
       </div>
-      <p class="path-value">{shortPath(configuredCookedPath)}</p>
+      <p class="path-text" title={displayPath(configuredCookedPath)}>{displayPath(configuredCookedPath)}</p>
       <p class="context-note">{configuredCookedSafety.detail}</p>
     </section>
 
-    <section class="sidebar-panel">
-      <div class="sidebar-panel-heading">
-        <h2>Guardrails</h2>
-        <span class="status-chip warn">Non-negotiable</span>
+    <section class="panel sidebar-panel">
+      <div class="panel-header compact-header">
+        <div>
+          <p class="panel-label">Guardrails</p>
+          <h2>Non-negotiable</h2>
+        </div>
+        <span class="status-badge warning">Utility only</span>
       </div>
-      <ul class="rule-list">
+      <ul class="rule-list compact-list">
         {#each safetyRules as rule}
           <li>{rule}</li>
         {/each}
@@ -389,30 +467,34 @@
   </aside>
 
   <main class="content">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Phase 5C</p>
-        <h2>Human GUI click-through polish</h2>
-        <p>
-          This pass compares the real Tauri window against the sandbox smoke workflow in
-          <strong>target/gui_smoke</strong>. The frontend stays thin while small live UX rough edges
-          are tightened without moving backend logic out of Rust.
-        </p>
+    <header class="panel topbar">
+      <div class="topbar-main">
+        <div>
+          <p class="panel-label">Desktop tool</p>
+          <h2>{currentPage.label}</h2>
+          <p>{currentPage.detail}</p>
+        </div>
+        <div class="tool-row compact-wrap topbar-badges">
+          <span class={`status-badge ${$appStore.tauri_available ? "ok" : "danger"}`}>
+            {$appStore.tauri_available ? "Tauri ready" : "Browser only"}
+          </span>
+          <span class={`status-badge ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
+          <span class="status-badge neutral">{$appStore.app_status?.active_swap_count ?? 0} active</span>
+          <span class="status-badge neutral">{$appStore.backups.status?.tracked_file_count ?? 0} backups</span>
+        </div>
       </div>
-
-      <div class="hero-stack">
-        <article class="hero-card">
-          <span>Current page</span>
-          <strong>{pages.find((page) => page.id === $appStore.active_page)?.label}</strong>
-          <p>{pages.find((page) => page.id === $appStore.active_page)?.detail}</p>
-        </article>
-        <article class="hero-card">
-          <span>Configured CookedPCConsole</span>
-          <strong>{configuredCookedSafety.label}</strong>
-          <p class="path-value">{shortPath(configuredCookedPath)}</p>
-        </article>
+      <div class="topbar-strip">
+        <div class="topbar-path">
+          <span class="topbar-field-label">CookedPCConsole</span>
+          <span class="path-text" title={displayPath(configuredCookedPath)}>{displayPath(configuredCookedPath)}</span>
+        </div>
+        <div class="tool-row compact-wrap topbar-badges minor">
+          <span class="status-badge neutral">{$appStore.app_status?.local_files_count ?? 0} upk</span>
+          <span class="status-badge neutral">{$appStore.app_status?.product_count ?? 0} items</span>
+          <span class="status-badge neutral">{$appStore.logs.length} logs</span>
+        </div>
       </div>
-    </section>
+    </header>
 
     {#if $appStore.runtime_error}
       <section class="banner danger">
@@ -648,39 +730,14 @@
         </article>
       </section>
     {:else if $appStore.active_page === "quick-swap"}
-      <section class="content-grid two-up">
-        <article class="panel context-card">
-          <div class="panel-heading">
-            <div>
-              <p class="panel-label">Risk context</p>
-              <h3>{configuredCookedSafety.label}</h3>
-            </div>
-            <span class={`status-chip ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
-          </div>
-          <p>{shortPath(configuredCookedPath)}</p>
-          <p class="context-note">{configuredCookedSafety.detail}</p>
-        </article>
-
-        <article class={`panel preflight-card ${selectionReadiness.tone}`}>
-          <div class="panel-heading">
-            <div>
-              <p class="panel-label">Selection preflight</p>
-              <h3>{selectionReadiness.label}</h3>
-            </div>
-            <span class={`status-chip ${selectionReadiness.tone}`}>{selectionReadiness.label}</span>
-          </div>
-          <p>{selectionReadiness.detail}</p>
-        </article>
-      </section>
-
-      <section class="content-grid two-up">
+      <section class="content-grid two-up quick-swap-grid">
         <article class="panel search-panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">TARGET</p>
               <h3>Item you own or equip</h3>
             </div>
-            <span class="status-chip neutral">Products only</span>
+            <span class="status-badge neutral">Products only</span>
           </div>
           <p class="helper-copy">
             Choose the product you already own or equip in Rocket League. This identity stays on disk.
@@ -712,15 +769,39 @@
           {#if $appStore.quick_swap.target.error}
             <section class="inline-alert danger">{$appStore.quick_swap.target.error}</section>
           {/if}
+
+          <section class="selection-card">
+            {#if $appStore.quick_swap.target.selected}
+              <div class="panel-header compact-header">
+                <div>
+                  <p class="panel-label">Selected TARGET</p>
+                  <h4>{$appStore.quick_swap.target.selected.name}</h4>
+                </div>
+                <span class="status-badge ok">#{$appStore.quick_swap.target.selected.id}</span>
+              </div>
+              <dl class="detail-list compact-table key-value-table">
+                <div><dt>Product ID</dt><dd>{$appStore.quick_swap.target.selected.id}</dd></div>
+                <div><dt>Slot</dt><dd>{$appStore.quick_swap.target.selected.slot ?? "Unknown"}</dd></div>
+                <div><dt>Quality</dt><dd>{$appStore.quick_swap.target.selected.quality ?? "Unknown"}</dd></div>
+                <div><dt>Visual package</dt><dd class="path-text" title={displayPath($appStore.quick_swap.target.selected.product_asset_package)}>{displayPath($appStore.quick_swap.target.selected.product_asset_package)}</dd></div>
+                <div><dt>Thumbnail package</dt><dd class="path-text" title={displayPath($appStore.quick_swap.target.selected.product_thumbnail_package)}>{displayPath($appStore.quick_swap.target.selected.product_thumbnail_package)}</dd></div>
+              </dl>
+            {:else}
+              <div class="selection-card-empty">
+                <p class="panel-label">Selected TARGET</p>
+                <p class="empty-state">Pick the owned/equipped item you want to preserve on disk.</p>
+              </div>
+            {/if}
+          </section>
         </article>
 
         <article class="panel search-panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">SOURCE</p>
               <h3>Item you want to see</h3>
             </div>
-            <span class="status-chip neutral">Products only</span>
+            <span class="status-badge neutral">Products only</span>
           </div>
           <p class="helper-copy">
             Choose the local appearance you want to see. SOURCE content is rebuilt into TARGET filenames.
@@ -752,16 +833,63 @@
           {#if $appStore.quick_swap.source.error}
             <section class="inline-alert danger">{$appStore.quick_swap.source.error}</section>
           {/if}
+
+          <section class="selection-card">
+            {#if $appStore.quick_swap.source.selected}
+              <div class="panel-header compact-header">
+                <div>
+                  <p class="panel-label">Selected SOURCE</p>
+                  <h4>{$appStore.quick_swap.source.selected.name}</h4>
+                </div>
+                <span class="status-badge ok">#{$appStore.quick_swap.source.selected.id}</span>
+              </div>
+              <dl class="detail-list compact-table key-value-table">
+                <div><dt>Product ID</dt><dd>{$appStore.quick_swap.source.selected.id}</dd></div>
+                <div><dt>Slot</dt><dd>{$appStore.quick_swap.source.selected.slot ?? "Unknown"}</dd></div>
+                <div><dt>Quality</dt><dd>{$appStore.quick_swap.source.selected.quality ?? "Unknown"}</dd></div>
+                <div><dt>Visual package</dt><dd class="path-text" title={displayPath($appStore.quick_swap.source.selected.product_asset_package)}>{displayPath($appStore.quick_swap.source.selected.product_asset_package)}</dd></div>
+                <div><dt>Thumbnail package</dt><dd class="path-text" title={displayPath($appStore.quick_swap.source.selected.product_thumbnail_package)}>{displayPath($appStore.quick_swap.source.selected.product_thumbnail_package)}</dd></div>
+              </dl>
+            {:else}
+              <div class="selection-card-empty">
+                <p class="panel-label">Selected SOURCE</p>
+                <p class="empty-state">Pick the visual item you want to see locally after rebuild.</p>
+              </div>
+            {/if}
+          </section>
         </article>
       </section>
 
       <section class="panel">
-        <div class="panel-heading">
+        <div class="panel-header">
           <div>
-            <p class="panel-label">Plan and build</p>
-            <h3>{$appStore.quick_swap.plan?.profile_name ?? "No swap plan yet"}</h3>
+            <p class="panel-label">Compatibility</p>
+            <h3>{$appStore.quick_swap.plan?.profile_name ?? selectionReadiness.label}</h3>
           </div>
-          <div class="action-row compact">
+          <div class="tool-row compact-wrap">
+            <span class={`status-badge ${selectionReadiness.tone}`}>{selectionReadiness.label}</span>
+            {#if $appStore.quick_swap.plan}
+              <span class={`status-badge ${$appStore.quick_swap.plan.compatibility.same_slot ? "ok" : "danger"}`}>
+                {$appStore.quick_swap.plan.compatibility.same_slot ? "Same slot confirmed" : "Slot mismatch"}
+              </span>
+            {/if}
+          </div>
+        </div>
+
+        <p class="helper-copy">{selectionReadiness.detail}</p>
+
+        <dl class="detail-list compact-table key-value-table compatibility-table">
+          <div><dt>Configured CookedPCConsole</dt><dd class="path-text" title={displayPath(configuredCookedPath)}>{displayPath(configuredCookedPath)}</dd></div>
+          <div><dt>Path posture</dt><dd>{configuredCookedSafety.label}</dd></div>
+          <div><dt>Plan profile</dt><dd>{$appStore.quick_swap.plan?.profile_name ?? "Not created"}</dd></div>
+          <div><dt>Build status</dt><dd>{$appStore.quick_swap.build_report?.status ?? "Not built"}</dd></div>
+          <div><dt>TARGET</dt><dd>{$appStore.quick_swap.target.selected?.name ?? "Not selected"}</dd></div>
+          <div><dt>SOURCE</dt><dd>{$appStore.quick_swap.source.selected?.name ?? "Not selected"}</dd></div>
+          <div><dt>Plan file</dt><dd class="path-text" title={displayPath($appStore.quick_swap.plan?.plan_path)}>{displayPath($appStore.quick_swap.plan?.plan_path)}</dd></div>
+          <div><dt>Install preview</dt><dd>{$appStore.quick_swap.install_preview?.status ?? "Not prepared"}</dd></div>
+        </dl>
+
+        <div class="tool-row action-bar">
             <button type="button" class="action-button" disabled={!$appStore.quick_swap.target.selected || !$appStore.quick_swap.source.selected || $appStore.quick_swap.creating_plan} on:click={() => void appStore.createCurrentPlan()}>
               {actionText($appStore.quick_swap.creating_plan, "Create backend plan", "Planning")}
             </button>
@@ -769,25 +897,14 @@
               {actionText($appStore.quick_swap.building, "Build plan", "Building")}
             </button>
             <button type="button" class="action-button accent" disabled={!$appStore.quick_swap.build_report || $appStore.quick_swap.build_report.status !== "built" || $appStore.quick_swap.previewing_install} on:click={() => void appStore.previewCurrentInstall()}>
-              {actionText($appStore.quick_swap.previewing_install, "Open install preview", "Preparing preview")}
+              {actionText($appStore.quick_swap.previewing_install, "Preview install", "Preparing preview")}
             </button>
-          </div>
+            <button type="button" class="action-button subtle" disabled={!$appStore.quick_swap.plan} on:click={() => appStore.setActivePage("install-preview")}>
+              Install
+            </button>
         </div>
 
-        <article class={`preflight-card ${selectionReadiness.tone}`}>
-          <strong>{selectionReadiness.label}</strong>
-          <p>{selectionReadiness.detail}</p>
-        </article>
-
         {#if $appStore.quick_swap.plan}
-          <dl class="detail-list compact gridish">
-            <div><dt>Profile</dt><dd>{$appStore.quick_swap.plan.profile_name}</dd></div>
-            <div><dt>Backend compatibility</dt><dd>{$appStore.quick_swap.plan.compatibility.same_slot ? "Same slot confirmed" : "Slot mismatch"}</dd></div>
-            <div><dt>TARGET</dt><dd>{$appStore.quick_swap.plan.target_product.name}</dd></div>
-            <div><dt>SOURCE</dt><dd>{$appStore.quick_swap.plan.source_product.name}</dd></div>
-            <div><dt>Configured CookedPCConsole</dt><dd>{shortPath($appStore.quick_swap.plan.configured_cooked_root)}</dd></div>
-            <div><dt>Plan file</dt><dd>{shortPath($appStore.quick_swap.plan.plan_path)}</dd></div>
-          </dl>
           <NoticeGroup title="Plan warnings" tone="warning" items={noticesFrom($appStore.quick_swap.plan.warnings)} />
           <NoticeGroup title="Plan blockers" tone="danger" items={noticesFrom($appStore.quick_swap.plan.build_blockers)} />
         {/if}
@@ -800,87 +917,145 @@
         {/if}
       </section>
     {:else if $appStore.active_page === "install-preview"}
-      <section class="content-grid two-up">
-        <article class="panel context-card">
-          <div class="panel-heading">
+      <section class="content-grid wide-right install-layout">
+        <article class="panel context-card install-gate-panel">
+          <div class="panel-header">
             <div>
-              <p class="panel-label">Risk context</p>
-              <h3>{installCookedSafety.label}</h3>
+              <p class="panel-label">Install tool</p>
+              <h3>{$appStore.quick_swap.install_preview?.profile_name ?? $appStore.quick_swap.plan?.profile_name ?? "No plan selected"}</h3>
             </div>
-            <span class={`status-chip ${installCookedSafety.tone}`}>{installCookedSafety.label}</span>
+            <span class={`status-badge ${installPreviewReady ? "ok" : "warning"}`}>
+              {$appStore.quick_swap.install_preview?.status ?? "waiting"}
+            </span>
           </div>
-          <p>{shortPath(installCookedPath)}</p>
-          <p class="context-note">{installCookedSafety.detail}</p>
+
+          {#if !$appStore.quick_swap.plan}
+            <p class="empty-state">Create and build a plan on the Quick Swap page first.</p>
+          {:else}
+            <dl class="detail-list compact-table key-value-table">
+              <div><dt>Configured CookedPCConsole</dt><dd class="path-text" title={displayPath(installCookedPath)}>{displayPath(installCookedPath)}</dd></div>
+              <div><dt>Path posture</dt><dd>{installCookedSafety.label}</dd></div>
+              <div><dt>Plan file</dt><dd class="path-text" title={displayPath($appStore.quick_swap.plan.plan_path)}>{displayPath($appStore.quick_swap.plan.plan_path)}</dd></div>
+              <div><dt>Build status</dt><dd>{$appStore.quick_swap.build_report?.status ?? "Not built"}</dd></div>
+              <div><dt>Build root</dt><dd class="path-text" title={displayPath($appStore.quick_swap.install_preview?.build_root)}>{displayPath($appStore.quick_swap.install_preview?.build_root)}</dd></div>
+              <div><dt>Workspace root</dt><dd class="path-text" title={displayPath($appStore.quick_swap.install_preview?.workspace_root)}>{displayPath($appStore.quick_swap.install_preview?.workspace_root)}</dd></div>
+            </dl>
+
+            <article class={`notice-strip ${installCookedSafety.tone}`}>
+              <strong>{installCookedSafety.label}</strong>
+              <p>{installCookedSafety.detail}</p>
+            </article>
+
+            <div class="tool-row compact-wrap">
+              <span class={`status-badge ${installPhraseMatches ? "ok" : "warning"}`}>
+                {installPhraseMatches ? "Phrase matched" : "Exact phrase required"}
+              </span>
+              <span class="status-badge neutral">Dry run first</span>
+            </div>
+
+            <div class="tool-row">
+              <button type="button" class="action-button" disabled={!$appStore.quick_swap.build_report || $appStore.quick_swap.build_report.status !== "built" || $appStore.quick_swap.previewing_install} on:click={() => void appStore.previewCurrentInstall()}>
+                {actionText($appStore.quick_swap.previewing_install, "Generate install preview", "Preparing preview")}
+              </button>
+            </div>
+          {/if}
         </article>
 
-        <article class="panel context-card">
-          <div class="panel-heading">
+        <article class="panel install-backup-panel">
+          <div class="panel-header">
             <div>
-              <p class="panel-label">Confirmation gate</p>
-              <h3>{$appStore.quick_swap.install_preview?.confirmation_phrase ?? "Generate preview first"}</h3>
+              <p class="panel-label">Backup paths</p>
+              <h3>Install safety inputs</h3>
             </div>
-            <span class={`status-chip ${installPhraseMatches ? "ok" : "warn"}`}>{installPhraseMatches ? "Phrase matched" : "Exact phrase required"}</span>
+            <span class="status-badge neutral">Preview first</span>
           </div>
-          <p>
-            Install remains disabled until preview is ready, blockers are empty, and the backend-issued phrase is typed exactly.
-          </p>
+
+          {#if !$appStore.quick_swap.install_preview}
+            <p class="empty-state">Generate an install preview to inspect backup roots and manifest targets.</p>
+          {:else}
+            <dl class="detail-list compact-table key-value-table">
+              <div><dt>Original backup manifest</dt><dd class="path-text" title={displayPath($appStore.quick_swap.install_preview.original_backup_manifest_path)}>{displayPath($appStore.quick_swap.install_preview.original_backup_manifest_path)}</dd></div>
+              <div><dt>Restore command</dt><dd class="path-text" title={displayPath($appStore.quick_swap.install_preview.restore_command)}>{displayPath($appStore.quick_swap.install_preview.restore_command)}</dd></div>
+            </dl>
+
+            <p class="subpanel-label">Profile backups</p>
+            <div class="compact-table file-table">
+              <div class="table-row table-head"><span>Kind</span><span>Operation</span><span>Path</span><span>Status</span></div>
+              {#each $appStore.quick_swap.install_preview.profile_backups as backup}
+                <div class="table-row">
+                  <span>{backup.backup_kind}</span>
+                  <span>{backup.operation_kind}</span>
+                  <span class="path-text" title={backup.backup_path}>{backup.backup_path}</span>
+                  <span>{backup.status}</span>
+                </div>
+              {/each}
+            </div>
+
+            <p class="subpanel-label">Permanent originals</p>
+            <div class="compact-table file-table">
+              <div class="table-row table-head"><span>Kind</span><span>Operation</span><span>Path</span><span>Status</span></div>
+              {#each $appStore.quick_swap.install_preview.permanent_original_backups as backup}
+                <div class="table-row">
+                  <span>{backup.backup_kind}</span>
+                  <span>{backup.operation_kind}</span>
+                  <span class="path-text" title={backup.backup_path}>{backup.backup_path}</span>
+                  <span>{backup.status}</span>
+                </div>
+              {/each}
+            </div>
+          {/if}
         </article>
       </section>
 
-      <section class="panel">
-        <div class="panel-heading">
+      <section class="panel install-files-panel">
+        <div class="panel-header">
           <div>
-            <p class="panel-label">Install gate</p>
-            <h3>{$appStore.quick_swap.install_preview?.profile_name ?? $appStore.quick_swap.plan?.profile_name ?? "No plan selected"}</h3>
+            <p class="panel-label">Affected files</p>
+            <h3>Confirmation window</h3>
           </div>
-          <span class={`status-chip ${installPreviewReady ? "ok" : "warn"}`}>
-            {$appStore.quick_swap.install_preview?.status ?? "waiting"}
-          </span>
+          <span class={`status-badge ${installPhraseMatches ? "ok" : "warning"}`}>{installPhraseMatches ? "Ready for confirm" : "Awaiting exact phrase"}</span>
         </div>
-        {#if !$appStore.quick_swap.plan}
-          <p class="empty-state">Create and build a plan on the Quick Swap page first.</p>
+
+        {#if !$appStore.quick_swap.install_preview}
+          <p class="empty-state">No preview loaded yet.</p>
         {:else}
-          <dl class="detail-list compact gridish">
-            <div><dt>Configured CookedPCConsole</dt><dd>{shortPath(installCookedPath)}</dd></div>
-            <div><dt>Path posture</dt><dd>{installCookedSafety.label}</dd></div>
-            <div><dt>Plan file</dt><dd>{shortPath($appStore.quick_swap.plan.plan_path)}</dd></div>
-            <div><dt>Build status</dt><dd>{$appStore.quick_swap.build_report?.status ?? "Not built"}</dd></div>
-          </dl>
-          <div class="action-row">
-            <button type="button" class="action-button" disabled={!$appStore.quick_swap.build_report || $appStore.quick_swap.build_report.status !== "built" || $appStore.quick_swap.previewing_install} on:click={() => void appStore.previewCurrentInstall()}>
-              {actionText($appStore.quick_swap.previewing_install, "Generate install preview", "Preparing preview")}
-            </button>
+          <div class="compact-table file-table">
+            <div class="table-row table-head"><span>Kind</span><span>Filename</span><span>Destination</span><span>Result</span></div>
+            {#each $appStore.quick_swap.install_preview.files as file}
+              <div class="table-row">
+                <span>{file.kind}</span>
+                <span>{file.target_filename}</span>
+                <span class="path-text" title={file.target_path}>{file.target_path}</span>
+                <span>{file.would_overwrite ? "Would overwrite" : "Fresh copy"}</span>
+              </div>
+            {/each}
           </div>
-          {#if $appStore.quick_swap.install_preview}
-            <div class="table-like">
-              {#each $appStore.quick_swap.install_preview.files as file}
-                <article>
-                  <div><strong>{file.kind}</strong><p>{file.target_filename}</p></div>
-                  <div><span>{file.would_overwrite ? "Would overwrite" : "Fresh copy"}</span><small>{shortPath(file.target_path)}</small></div>
-                </article>
-              {/each}
-            </div>
-            <NoticeGroup title="Preview warnings" tone="warning" items={noticesFrom($appStore.quick_swap.install_preview.warnings)} />
-            <NoticeGroup title="Preview blockers" tone="danger" items={noticesFrom($appStore.quick_swap.install_preview.blockers)} />
-            <article class="confirm-card">
+
+          <NoticeGroup title="Preview warnings" tone="warning" items={noticesFrom($appStore.quick_swap.install_preview.warnings)} />
+          <NoticeGroup title="Preview blockers" tone="danger" items={noticesFrom($appStore.quick_swap.install_preview.blockers)} />
+
+          <article class="confirm-card tool-window-card">
+            <div class="panel-header compact-header">
               <div>
                 <p class="panel-label">Typed confirmation</p>
-                <h4 class="confirmation-phrase">{$appStore.quick_swap.install_preview.confirmation_phrase}</h4>
-                <p>Type the exact phrase below. Install remains disabled until the phrase matches exactly.</p>
+                <h4>{$appStore.quick_swap.install_preview.confirmation_phrase}</h4>
               </div>
-              <label class="field">
-                <span>Confirmation phrase</span>
-                <input type="text" value={$appStore.quick_swap.install_confirmation} placeholder="Type the exact confirmation phrase" on:input={(event) => appStore.setInstallConfirmation(inputValue(event))} />
-              </label>
-              <label class="checkbox-field">
-                <input type="checkbox" checked={$appStore.quick_swap.overwrite_profile_backup} on:change={(event) => appStore.setOverwriteProfileBackup(inputChecked(event))} />
-                <span>Allow overwriting the profile backup if one already exists</span>
-              </label>
-              <button type="button" class="action-button accent" disabled={!installPreviewReady || !installPhraseMatches || $appStore.quick_swap.installing} on:click={() => void appStore.installCurrentPlan()}>
-                {actionText($appStore.quick_swap.installing, "Install confirmed", "Installing")}
-              </button>
-            </article>
-          {/if}
+              <span class={`status-badge ${installPhraseMatches ? "ok" : "warning"}`}>{installPhraseMatches ? "Phrase matched" : "Type exact phrase"}</span>
+            </div>
+            <div class="confirmation-phrase">{$appStore.quick_swap.install_preview.confirmation_phrase}</div>
+            <label class="field">
+              <span>Confirmation phrase</span>
+              <input type="text" value={$appStore.quick_swap.install_confirmation} placeholder="Type the exact confirmation phrase" on:input={(event) => appStore.setInstallConfirmation(inputValue(event))} />
+            </label>
+            <label class="checkbox-field">
+              <input type="checkbox" checked={$appStore.quick_swap.overwrite_profile_backup} on:change={(event) => appStore.setOverwriteProfileBackup(inputChecked(event))} />
+              <span>Allow overwriting the profile backup if one already exists</span>
+            </label>
+            <button type="button" class="action-button accent" disabled={!installPreviewReady || !installPhraseMatches || $appStore.quick_swap.installing} on:click={() => void appStore.installCurrentPlan()}>
+              {actionText($appStore.quick_swap.installing, "Install confirmed", "Installing")}
+            </button>
+          </article>
+
           {#if $appStore.quick_swap.install_report}
             <section class={`inline-alert ${$appStore.quick_swap.install_report.installed ? "success" : "danger"}`}>
               {$appStore.quick_swap.install_report.status} at {formatDate($appStore.quick_swap.install_report.installed_at)}
@@ -897,9 +1072,9 @@
         {/if}
       </section>
     {:else if $appStore.active_page === "active-swaps"}
-      <section class="content-grid wide-right">
+      <section class="content-grid active-swaps-layout">
         <article class="panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">Installed profiles</p>
               <h3>Restore targets</h3>
@@ -909,39 +1084,43 @@
           {#if $appStore.restore.installed_swaps.length === 0}
             <p class="empty-state">No installed swap records yet.</p>
           {:else}
-            <div class="result-list installed-list">
+            <div class="compact-table swap-table">
+              <div class="table-row table-head"><span>Profile</span><span>Target</span><span>Source</span><span>Status</span><span>Action</span></div>
               {#each $appStore.restore.installed_swaps as swap}
-                <button type="button" class:selected={$appStore.restore.selected_profile_name === swap.profile_name} on:click={() => appStore.selectInstalledProfile(swap.profile_name)}>
-                  <div><strong>{swap.profile_name}</strong><p>{swap.target_name ?? "Unknown target"} -> {swap.source_name ?? "Unknown source"}</p></div>
-                  <div><span>{swap.active ? "Active" : "Inactive"}</span><small>{formatDate(swap.installed_at)}</small></div>
-                </button>
+                <div class={`table-row swap-row ${$appStore.restore.selected_profile_name === swap.profile_name ? "selected" : ""}`}>
+                  <span>{swap.profile_name}</span>
+                  <span>{swap.target_name ?? "Unknown target"}</span>
+                  <span>{swap.source_name ?? "Unknown source"}</span>
+                  <span>{swap.active ? "Active" : "Inactive"}</span>
+                  <button type="button" class="action-button subtle row-action" on:click={() => appStore.selectInstalledProfile(swap.profile_name)}>Restore</button>
+                </div>
               {/each}
             </div>
           {/if}
         </article>
 
         <article class="panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">Restore</p>
               <h3>{selectedSwap?.profile_name ?? "Choose a profile"}</h3>
             </div>
             {#if selectedSwap}
-              <span class={`status-chip ${selectedSwap.active ? "ok" : "warn"}`}>{selectedSwap.active ? "Active install" : "Historical record"}</span>
+              <span class={`status-badge ${selectedSwap.active ? "ok" : "warning"}`}>{selectedSwap.active ? "Active install" : "Historical record"}</span>
             {/if}
           </div>
           {#if !selectedSwap}
             <p class="empty-state">Select an installed profile to preview restore steps.</p>
           {:else}
-            <dl class="detail-list compact gridish">
+            <dl class="detail-list compact-table key-value-table">
               <div><dt>TARGET</dt><dd>{selectedSwap.target_name ?? "Unknown"}</dd></div>
               <div><dt>SOURCE</dt><dd>{selectedSwap.source_name ?? "Unknown"}</dd></div>
-              <div><dt>Selected install root</dt><dd>{shortPath(selectedSwap.cooked_root)}</dd></div>
-              <div><dt>Configured CookedPCConsole</dt><dd>{shortPath(configuredCookedPath)}</dd></div>
+              <div><dt>Selected install root</dt><dd class="path-text" title={displayPath(selectedSwap.cooked_root)}>{displayPath(selectedSwap.cooked_root)}</dd></div>
+              <div><dt>Configured CookedPCConsole</dt><dd class="path-text" title={displayPath(configuredCookedPath)}>{displayPath(configuredCookedPath)}</dd></div>
               <div><dt>Configured path posture</dt><dd>{restoreCookedSafety.label}</dd></div>
               <div><dt>Plan status</dt><dd>{selectedSwap.plan_status ?? "Unknown"}</dd></div>
             </dl>
-            <article class={`preflight-card ${restoreCookedSafety.tone}`}>
+            <article class={`notice-strip ${restoreCookedSafety.tone}`}>
               <strong>{restoreCookedSafety.label}</strong>
               <p>{restoreCookedSafety.detail}</p>
             </article>
@@ -955,22 +1134,28 @@
               </button>
             </div>
             {#if $appStore.restore.preview}
-              <div class="table-like">
+              <div class="compact-table file-table">
+                <div class="table-row table-head"><span>Kind</span><span>Backup</span><span>Destination</span><span>Status</span></div>
                 {#each $appStore.restore.preview.files as file}
-                  <article>
-                    <div><strong>{file.kind}</strong><p>{file.backup_kind}</p></div>
-                    <div><span>{file.destination_exists ? "Destination exists" : "Destination missing"}</span><small>{shortPath(file.destination_path)}</small></div>
-                  </article>
+                  <div class="table-row">
+                    <span>{file.kind}</span>
+                    <span>{file.backup_kind}</span>
+                    <span class="path-text" title={file.destination_path}>{file.destination_path}</span>
+                    <span>{file.destination_exists ? "Destination exists" : "Destination missing"}</span>
+                  </div>
                 {/each}
               </div>
               <NoticeGroup title="Restore warnings" tone="warning" items={noticesFrom($appStore.restore.preview.warnings)} />
               <NoticeGroup title="Restore blockers" tone="danger" items={noticesFrom($appStore.restore.preview.blockers)} />
-              <article class="confirm-card">
-                <div>
-                  <p class="panel-label">Typed confirmation</p>
-                  <h4 class="confirmation-phrase">{$appStore.restore.preview.confirmation_phrase}</h4>
-                  <p>Restore remains disabled until the preview is ready and the exact phrase is typed.</p>
+              <article class="confirm-card tool-window-card">
+                <div class="panel-header compact-header">
+                  <div>
+                    <p class="panel-label">Typed confirmation</p>
+                    <h4>{$appStore.restore.preview.confirmation_phrase}</h4>
+                  </div>
+                  <span class={`status-badge ${restorePhraseMatches ? "ok" : "warning"}`}>{restorePhraseMatches ? "Phrase matched" : "Type exact phrase"}</span>
                 </div>
+                <div class="confirmation-phrase">{$appStore.restore.preview.confirmation_phrase}</div>
                 <label class="field">
                   <span>Confirmation phrase</span>
                   <input type="text" value={$appStore.restore.confirmation} placeholder="Type the restore confirmation phrase" on:input={(event) => appStore.setRestoreConfirmation(inputValue(event))} />
@@ -1043,56 +1228,58 @@
         </article>
       </section>
     {:else if $appStore.active_page === "diagnostics"}
-      <section class="content-grid two-up">
+      <section class="content-grid wide-right diagnostics-layout">
         <article class="panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">Paths</p>
               <h3>Local diagnostics</h3>
             </div>
-            <span class={`status-chip ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
+            <span class={`status-badge ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
           </div>
-          <dl class="detail-list">
-            <div><dt>App home</dt><dd>{shortPath($appStore.config?.app_home)}</dd></div>
-            <div><dt>Database path</dt><dd>{shortPath($appStore.config?.database_path)}</dd></div>
-            <div><dt>Configured CookedPCConsole</dt><dd>{shortPath(configuredCookedPath)}</dd></div>
-            <div><dt>Profile backups</dt><dd>{shortPath(profileBackupRoot)}</dd></div>
-            <div><dt>Original backups</dt><dd>{shortPath($appStore.backups.status?.backup_root)}</dd></div>
+          <dl class="detail-list compact-table key-value-table">
+            <div><dt>App home</dt><dd class="path-text" title={displayPath($appStore.config?.app_home)}>{displayPath($appStore.config?.app_home)}</dd></div>
+            <div><dt>Database path</dt><dd class="path-text" title={displayPath($appStore.config?.database_path)}>{displayPath($appStore.config?.database_path)}</dd></div>
+            <div><dt>Configured CookedPCConsole</dt><dd class="path-text" title={displayPath(configuredCookedPath)}>{displayPath(configuredCookedPath)}</dd></div>
+            <div><dt>Profile backups</dt><dd class="path-text" title={displayPath(profileBackupRoot)}>{displayPath(profileBackupRoot)}</dd></div>
+            <div><dt>Original backups</dt><dd class="path-text" title={displayPath($appStore.backups.status?.backup_root)}>{displayPath($appStore.backups.status?.backup_root)}</dd></div>
             <div><dt>Session logs</dt><dd>In-memory only for the current desktop session</dd></div>
           </dl>
         </article>
 
         <article class="panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">Counts</p>
               <h3>Current backend summary</h3>
             </div>
             <button type="button" class="action-button subtle" on:click={() => void appStore.refreshOverview(false)}>Refresh</button>
           </div>
-          <dl class="detail-list">
+          <dl class="detail-list compact-table key-value-table">
             <div><dt>Indexed local files</dt><dd>{$appStore.app_status?.local_files_count ?? 0}</dd></div>
             <div><dt>Products</dt><dd>{$appStore.app_status?.product_count ?? 0}</dd></div>
             <div><dt>Titles</dt><dd>{$appStore.app_status?.title_count ?? 0}</dd></div>
             <div><dt>Installed swaps</dt><dd>{$appStore.restore.installed_swaps.length}</dd></div>
             <div><dt>Active swaps</dt><dd>{$appStore.app_status?.active_swap_count ?? 0}</dd></div>
             <div><dt>Permanent originals tracked</dt><dd>{$appStore.backups.status?.tracked_file_count ?? 0}</dd></div>
+            <div><dt>Backup status</dt><dd>{backupHealth.label}</dd></div>
+            <div><dt>Path posture</dt><dd>{configuredCookedSafety.label}</dd></div>
           </dl>
-          <article class={`preflight-card ${configuredCookedSafety.tone}`}>
+          <article class={`notice-strip ${configuredCookedSafety.tone}`}>
             <strong>{configuredCookedSafety.label}</strong>
             <p>{configuredCookedSafety.detail}</p>
           </article>
         </article>
       </section>
     {:else if $appStore.active_page === "logs"}
-      <section class="content-grid two-up">
+      <section class="content-grid wide-right logs-layout">
         <article class="panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">Expected smoke sequence</p>
               <h3>Commands the GUI should emit</h3>
             </div>
-            <span class="status-chip neutral">Manual check</span>
+            <span class="status-badge neutral">Manual check</span>
           </div>
           <p>
             During a sandbox click-through, the log should show this command sequence in roughly this order.
@@ -1105,21 +1292,27 @@
         </article>
 
         <article class="panel">
-          <div class="panel-heading">
+          <div class="panel-header">
             <div>
               <p class="panel-label">Recent commands</p>
               <h3>Backend activity log</h3>
             </div>
-            <button type="button" class="action-button subtle" on:click={() => void appStore.refreshOverview(false)}>Refresh summaries</button>
+            <div class="tool-row compact-wrap">
+              <button type="button" class="action-button subtle" on:click={() => void appStore.refreshOverview(false)}>Refresh summaries</button>
+              <button type="button" class="action-button subtle" disabled={$appStore.logs.length === 0} on:click={() => void copyLogsToClipboard()}>
+                {logCopyState === "copied" ? "Copied" : logCopyState === "failed" ? "Copy failed" : "Copy"}
+              </button>
+            </div>
           </div>
           {#if $appStore.logs.length === 0}
             <p class="empty-state">No backend activity has been recorded yet.</p>
           {:else}
-            <div class="log-list">
+            <div class="monospace-log">
               {#each $appStore.logs as log}
                 <article class={`log-entry ${log.kind}`}>
-                  <div><strong>{log.command}</strong><p>{log.detail}</p></div>
-                  <span>{formatDate(log.at)}</span>
+                  <span class="log-timestamp">{formatDate(log.at)}</span>
+                  <strong>{log.command}</strong>
+                  <p>{log.detail}</p>
                 </article>
               {/each}
             </div>

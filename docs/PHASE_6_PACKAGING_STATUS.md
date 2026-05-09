@@ -66,6 +66,15 @@ An optional release CLI artifact was also built successfully:
 
 - `target/release/bakkeswap-cli.exe`
 
+## Phase 6B UI Polish Link
+
+The packaged beta now also depends on a compact desktop-tool UI pass that keeps the app visually aligned with a BakkesMod-style utility shell instead of a generic website layout.
+
+That UI pass is documented separately in:
+
+- `docs/PHASE_6B_DESKTOP_TOOL_UI_STATUS.md`
+- `docs/UI_STYLE_GUIDE.md`
+
 ## Required Safety Checks
 
 The beta package must not include:
@@ -125,6 +134,15 @@ Verified packaged window state:
 - configured path showed the sandbox `CookedPCConsole`
 - counts matched the smoke sandbox: `4 products`, `5 local .upk files`, `2 tracked backups`
 - the packaged app rendered the same sandbox safety posture and warnings expected from Phase 5
+
+The live Tauri dev smoke for the Phase 6B UI pass additionally verified:
+
+- compact left sidebar navigation with status badges
+- compact top status bar with the configured sandbox path visible
+- split Quick Swap TARGET and SOURCE columns with selected-item cards
+- compact Install Preview tool window with affected-file and backup tables
+- Active Swaps table with a visible per-row restore action
+- terminal-like Logs panel with copy action
 
 This confirms the packaged executable can boot and render the validated sandbox workflow state using only fake local data.
 

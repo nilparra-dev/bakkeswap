@@ -99,20 +99,23 @@ That keeps the smoke test on packaged app files without requiring a manual insta
 ## Manual Smoke Sequence
 
 1. Start the packaged app.
-2. Confirm Home loads.
-3. Open Game Folder and validate `target/gui_smoke/RocketLeague`.
-4. Open Database and import `target/gui_smoke/codered_dumps`.
-5. Refresh DB.
-6. Open Quick Swap and search TARGET `Target Decal` and SOURCE `Source Decal`.
-7. Create plan.
-8. Build plan.
-9. Open Install Preview.
-10. Confirm the configured path is still the sandbox path.
-11. Confirm install only against the sandbox root.
-12. Open Active Swaps and confirm the active state.
-13. Preview and confirm restore only against the sandbox root.
-14. Confirm Backups and Diagnostics load.
-15. Confirm Logs show the expected command sequence.
+2. Confirm the shell reads like a compact desktop utility: fixed sidebar, compact top status bar, dense panels, and clear status badges.
+3. Confirm Home loads.
+4. Open Game Folder and validate `target/gui_smoke/RocketLeague`.
+5. Open Database and import `target/gui_smoke/codered_dumps`.
+6. Refresh DB.
+7. Open Quick Swap and search TARGET `Target Decal` and SOURCE `Source Decal`.
+8. Confirm the split TARGET and SOURCE columns stay readable and that long paths do not break the layout.
+9. Create plan.
+10. Build plan.
+11. Open Install Preview.
+12. Confirm the configured path is still the sandbox path.
+13. Confirm affected files and backup paths remain readable in compact tables.
+14. Confirm install only against the sandbox root.
+15. Open Active Swaps and confirm the table and restore action remain readable.
+16. Preview and confirm restore only against the sandbox root.
+17. Confirm Backups and Diagnostics load.
+18. Confirm Logs shows the expected command sequence in the terminal-style log panel.
 
 ## Notes
 
