@@ -63,7 +63,7 @@ impl DatabaseImporter {
         let title_records = read_dump_records(&source_dir.join(TITLE_DUMP_FILE), false)?;
 
         let slot_labels = build_slot_label_map(&slot_records);
-        let mut connection = self.database.connect()?;
+        let connection = self.database.connect()?;
         let transaction = connection.unchecked_transaction()?;
 
         transaction.execute("DELETE FROM products", [])?;
@@ -270,6 +270,18 @@ fn insert_products(
             record,
             &["Product Thumbnail Asset", "product_thumbnail_asset"],
         );
+        let visual_upk = derive_upk_filename(
+            product_asset_package.as_deref(),
+            product_asset_path.as_deref(),
+        );
+        let thumb_upk = derive_upk_filename(
+            product_thumbnail_package.as_deref(),
+            product_thumbnail_asset.as_deref(),
+        );
+        let visual_asset = extract_asset_name(product_asset_path.as_deref())
+            .or_else(|| product_asset_package.clone());
+        let thumbnail_asset = extract_asset_name(product_thumbnail_asset.as_deref())
+            .or_else(|| product_thumbnail_package.clone());
 
         transaction.execute(
             "INSERT INTO products (
@@ -284,10 +296,10 @@ fn insert_products(
                 slot_id,
                 quality,
                 if paintable { 1 } else { 0 },
-                Option::<String>::None,
-                Option::<String>::None,
-                product_asset_path.clone(),
-                product_thumbnail_asset.clone(),
+                visual_upk,
+                thumb_upk,
+                visual_asset,
+                thumbnail_asset,
                 product_asset_package,
                 product_asset_path,
                 product_thumbnail_package,
@@ -312,6 +324,54 @@ fn build_slot_label_map(records: &[JsonRecord]) -> HashMap<i64, String> {
         }
     }
     labels
+}
+
+fn derive_upk_filename(package_name: Option<&str>, fallback_value: Option<&str>) -> Option<String> {
+    let stem = package_name
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .or_else(|| extract_package_stem(fallback_value));
+
+    stem.map(|value| {
+        if value.to_ascii_lowercase().ends_with(".upk") {
+            value
+        } else {
+            format!("{value}.upk")
+        }
+    })
+}
+
+fn extract_package_stem(value: Option<&str>) -> Option<String> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    Some(
+        trimmed
+            .split('.')
+            .next()
+            .unwrap_or(trimmed)
+            .trim()
+            .to_string(),
+    )
+}
+
+fn extract_asset_name(value: Option<&str>) -> Option<String> {
+    let trimmed = value?.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+
+    Some(
+        trimmed
+            .rsplit('.')
+            .next()
+            .unwrap_or(trimmed)
+            .trim()
+            .to_string(),
+    )
 }
 
 fn find_string(record: &JsonRecord, keys: &[&str]) -> Option<String> {

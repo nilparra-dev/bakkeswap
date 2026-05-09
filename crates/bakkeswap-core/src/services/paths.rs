@@ -188,7 +188,7 @@ pub fn format_validation_errors(validation: &GamePathValidation) -> String {
 }
 
 pub fn normalize_game_path_input(path: &Path) -> (PathBuf, Option<String>) {
-    let normalized_input = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let normalized_input = canonicalize_usable_path(path);
     let name = normalized_input
         .file_name()
         .map(|part| part.to_string_lossy().to_ascii_lowercase())
@@ -213,6 +213,30 @@ pub fn normalize_game_path_input(path: &Path) -> (PathBuf, Option<String>) {
         normalized_input.join("TAGame").join("CookedPCConsole"),
         Some("Rocket League root".to_string()),
     )
+}
+
+fn canonicalize_usable_path(path: &Path) -> PathBuf {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    strip_windows_verbatim_prefix(&canonical)
+}
+
+#[cfg(windows)]
+fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
+    let text = path.display().to_string();
+
+    if let Some(stripped) = text.strip_prefix(r"\\?\UNC\") {
+        return PathBuf::from(format!(r"\\{stripped}"));
+    }
+    if let Some(stripped) = text.strip_prefix(r"\\?\") {
+        return PathBuf::from(stripped);
+    }
+
+    path.to_path_buf()
+}
+
+#[cfg(not(windows))]
+fn strip_windows_verbatim_prefix(path: &Path) -> PathBuf {
+    path.to_path_buf()
 }
 
 fn scan_upk_files(cooked_dir: &Path) -> (usize, Vec<String>) {

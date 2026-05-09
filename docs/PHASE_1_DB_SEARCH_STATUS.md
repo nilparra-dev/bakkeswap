@@ -6,6 +6,8 @@ Date: 2026-05-09
 
 Phase 1 focuses on turning the public Rust/Tauri skeleton into a real database and search foundation without touching the UPK rebuilder, install execution, or runtime modules.
 
+Status: complete and validated.
+
 ## Implemented In This Pass
 
 ### SQLite foundation
@@ -33,6 +35,7 @@ Phase 1 focuses on turning the public Rust/Tauri skeleton into a real database a
 - imports products, slots, paints, and titles
 - does not require inventory import
 - preserves product asset package and thumbnail package metadata fields
+- derives candidate `visual_upk` and `thumb_upk` filenames from imported metadata for later planner resolution
 
 ### Local file indexing
 
@@ -61,10 +64,18 @@ Phase 1 focuses on turning the public Rust/Tauri skeleton into a real database a
 - search test over imported metadata
 - local file index test using temporary runtime-created `.upk` files only
 
+## Validation Result
+
+The Phase 1 validation commands now pass on the current machine:
+
+1. `cargo fmt`
+2. `cargo check -p bakkeswap-core -p bakkeswap-cli`
+3. `cargo test -p bakkeswap-core`
+4. `cargo clippy -p bakkeswap-core -p bakkeswap-cli --all-targets -- -D warnings`
+
 ## Intentionally Still Stubbed
 
 - UPK rebuilder
-- plan execution
 - build execution
 - real install execution
 - restore execution
@@ -78,14 +89,8 @@ Phase 1 focuses on turning the public Rust/Tauri skeleton into a real database a
 - no install execution or runtime hooks were added
 - offline/local-only boundary remains intact
 
-## Remaining Blockers
+## Hand-off To Phase 2
 
-### Code validation blocker
+Planner work now lives in `PHASE_2_PLANNER_STATUS.md`.
 
-- the machine still lacks Windows MSVC/SDK linker libraries required for successful `cargo check`
-
-### Product work still ahead
-
-- full compile validation after Windows build tools are installed
-- migration of the real planner/build/install logic
-- eventual Tauri wiring to the implemented CLI/core foundation
+The remaining product work after Phase 1 is the build/install/restore pipeline and the eventual UPK rebuilder port.

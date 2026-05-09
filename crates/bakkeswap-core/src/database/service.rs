@@ -69,7 +69,7 @@ impl DatabaseService {
 
     pub fn set_json_setting<T>(&self, key: &str, value: &T) -> Result<()>
     where
-        T: serde::Serialize,
+        T: serde::Serialize + ?Sized,
     {
         let connection = self.connect()?;
         let value_json = serde_json::to_string(value)?;

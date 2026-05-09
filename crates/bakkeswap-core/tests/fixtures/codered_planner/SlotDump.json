@@ -1,0 +1,20 @@
+[
+  {
+    "Slot Index": 1,
+    "Slot Label": "Decal",
+    "Slot Plural Label": "Decals",
+    "Slot Description": "Vehicle skin slot"
+  },
+  {
+    "Slot Index": 4,
+    "Slot Label": "Antenna",
+    "Slot Plural Label": "Antennas",
+    "Slot Description": "Roof flair slot"
+  },
+  {
+    "Slot Index": 99,
+    "Slot Label": "Player Title",
+    "Slot Plural Label": "Player Titles",
+    "Slot Description": "Text title slot"
+  }
+]

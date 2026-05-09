@@ -5,7 +5,8 @@ use bakkeswap_core::database::{
     CodeRedImportSource, DatabaseImporter, DatabaseService, LocalFileIndexer, SearchEngine,
     SearchKind, SearchRequest,
 };
-use bakkeswap_core::services::{PathService, StatusService};
+use bakkeswap_core::domain::models::SwapPlan;
+use bakkeswap_core::services::{PathService, PlannerService, StatusService};
 use clap::{Args, Parser, Subcommand};
 use serde_json::json;
 
@@ -67,6 +68,8 @@ struct PlanArgs {
     target: i64,
     #[arg(long)]
     source: i64,
+    #[arg(long, default_value_t = false)]
+    json: bool,
 }
 
 #[derive(Debug, Args)]
@@ -122,10 +125,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             DbCommand::Refresh => command_db_refresh(),
         },
         Command::Search(args) => command_search(args),
-        Command::Plan(args) => print_stub_with_value(
-            "plan",
-            format!("target={} source={}", args.target, args.source),
-        ),
+        Command::Plan(args) => command_plan(args),
         Command::Build(args) => print_stub_with_value("build", args.plan.display().to_string()),
         Command::Install(args) => print_stub_with_value(
             if args.dry_run {
@@ -238,6 +238,18 @@ fn command_status() -> Result<()> {
     Ok(())
 }
 
+fn command_plan(args: PlanArgs) -> Result<()> {
+    let planner = PlannerService::new(DatabaseService::for_current_user()?);
+    let plan = planner.create_plan(args.target, args.source)?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&plan)?);
+    } else {
+        print_plan_summary(&plan);
+    }
+    Ok(())
+}
+
 fn print_search_table(hits: &[bakkeswap_core::database::SearchHit]) {
     if hits.is_empty() {
         println!("No results.");
@@ -271,6 +283,67 @@ fn print_search_table(hits: &[bakkeswap_core::database::SearchHit]) {
         );
         if let Some(note) = &hit.note {
             println!("  note: {note}");
+        }
+    }
+}
+
+fn print_plan_summary(plan: &SwapPlan) {
+    println!("Plan written: {}", plan.plan_path);
+    println!("Profile: {}", plan.profile_name);
+    println!(
+        "Target:  {}  {}  {}",
+        plan.target_product.id,
+        plan.target_product.name,
+        plan.target_product
+            .visual_upk
+            .clone()
+            .unwrap_or_else(|| "[no visual]".to_string())
+    );
+    println!(
+        "Source:  {}  {}  {}",
+        plan.source_product.id,
+        plan.source_product.name,
+        plan.source_product
+            .visual_upk
+            .clone()
+            .unwrap_or_else(|| "[no visual]".to_string())
+    );
+    println!(
+        "Cooked root: {}",
+        plan.configured_cooked_root
+            .clone()
+            .unwrap_or_else(|| "[not configured]".to_string())
+    );
+    println!("Operations:");
+    for operation in &plan.operations {
+        println!(
+            "  - {}: {} <- {}{}",
+            operation.kind,
+            operation
+                .target_filename
+                .clone()
+                .unwrap_or_else(|| "[missing target]".to_string()),
+            operation
+                .source_filename
+                .clone()
+                .unwrap_or_else(|| "[missing source]".to_string()),
+            if operation.enabled { "" } else { " [disabled]" }
+        );
+    }
+    if plan.build_blockers.is_empty() {
+        println!("Build blockers: none");
+    } else {
+        println!("Build blockers:");
+        for blocker in &plan.build_blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if plan.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &plan.warnings {
+            println!("  - {}", warning.message);
         }
     }
 }

@@ -8,6 +8,21 @@
 - preserve exact filenames and capitalization
 - keep all safety warnings visible in logs or test output
 
+## Phase 2 Planner Gate
+
+Before rebuild-oriented golden cases can be treated as release gates, the planner foundation must pass these fake-fixture checks:
+
+1. successful same-slot plan
+2. missing target product error
+3. missing source product error
+4. slot mismatch blocker
+5. missing target visual package blocker
+6. missing source visual package blocker
+7. thumbnail missing warning without blocking a valid visual-only plan
+8. Player Title product blocked as non-swappable
+
+These checks now run from safe fake metadata fixtures plus temporary runtime-created `.upk` files only.
+
 ## Shared Assertions For Every Golden Swap Case
 
 Each golden case must prove all of the following:
@@ -117,6 +132,7 @@ Required assertions:
 - tests write plans and builds under a temporary workspace
 - tests use dry-run install only
 - tests fail fast on any missing local file or validation mismatch
+- planner-only tests may stop before build/install as long as blockers and warnings are explicit and correct
 
 ## Minimum Release Gate
 

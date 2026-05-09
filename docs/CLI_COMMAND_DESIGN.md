@@ -84,12 +84,23 @@ Purpose:
 
 - resolve a swap plan using the target-identity rebuild path
 
-Required future behavior:
+Current implementation:
 
-- resolve exact source and target UPKs
-- preserve filename capitalization
-- reject unsupported plans clearly
-- never default to raw rename or raw copy
+- loads target and source products from SQLite
+- verifies both products exist
+- verifies slot compatibility
+- blocks non-swappable product types such as Player Title products
+- resolves visual and thumbnail package filenames from imported metadata plus `local_files`
+- writes `workspace/plans/<profile_name>/swap_plan.json` under the app home
+- stores plan metadata in the `swap_plans` SQLite table
+- supports human-readable output by default and `--json` for machine-readable output
+
+Still deferred:
+
+- build/rebuild execution
+- install execution
+- restore execution
+- any direct game-file modification from the plan command
 
 ### `bakkeswap build --plan <plan_path>`
 
@@ -165,6 +176,7 @@ Purpose:
 - dry-run output must stay human-readable enough for manual verification
 - error messages must say why the operation is blocked and what the operator should fix next
 - commands that would touch real game files must remain explicit and confirmation-gated
+- plan output should preserve blockers and warnings instead of silently guessing around missing packages
 
 ## Exit Code Rules
 

@@ -4,63 +4,57 @@ Date: 2026-05-09
 
 ## Scope
 
-This report documents the compile and validation state reached during the Phase 1 database and search foundation pass.
+This report documents the compile and validation state reached after the Phase 1 database/search completion pass and the Phase 2 planner foundation pass.
 
 ## What Was Attempted
 
 ### Rust toolchain
 
-- Rust was installed locally during this session.
-- `cargo` and `rustc` became available afterward.
+- Rust is installed locally.
+- Visual Studio Build Tools and the required Windows linker libraries are available on this machine.
 
 ### Validation commands attempted
 
-- `cargo check`
+- `cargo fmt`
 - `cargo check -p bakkeswap-core -p bakkeswap-cli`
+- `cargo test -p bakkeswap-core`
+- `cargo clippy -p bakkeswap-core -p bakkeswap-cli --all-targets -- -D warnings`
 
 ### Additional static validation
 
-- file-level Rust error checks on the edited source files
+- editor error checks on the touched Rust files
+- planner integration tests using safe fake metadata and temporary runtime-created `.upk` files
 
 ## Current Result
 
 ### Rust code status
 
-- the edited Phase 1 Rust source files passed file-level error checks in the editor
-- no syntax-level errors were reported for the DB service, importer, indexer, search, path service, status service, or CLI wiring files
+- `cargo fmt` completed successfully
+- `cargo check -p bakkeswap-core -p bakkeswap-cli` passed
+- `cargo test -p bakkeswap-core` passed
+- `cargo clippy -p bakkeswap-core -p bakkeswap-cli --all-targets -- -D warnings` passed
+- editor error checks reported no issues in the touched Rust files
 
-### Environment blocker
+## Implemented And Validated In This State
 
-`cargo check` is still blocked on this machine by missing Windows MSVC and SDK linker libraries.
-
-Observed linker failures included missing:
-
-- `kernel32.lib`
-- `ntdll.lib`
-- `userenv.lib`
-- `ws2_32.lib`
-- `dbghelp.lib`
+- SQLite database initialization and settings-backed config storage
+- CodeRed metadata import for products, slots, paints, and titles
+- local `.upk` indexing with SHA-256 and preserved filename case
+- product/title search
+- planner foundation with saved JSON plans and `swap_plans` SQLite metadata
+- safe fake fixtures and integration coverage for import/search/index/planning
 
 ## Practical Meaning
 
-At this point:
+- the Rust rewrite is beyond skeleton-only status
+- Phase 1 is validated and complete
+- Phase 2 planner foundation is validated and complete
+- build/install/restore and the UPK rebuilder remain intentionally deferred
 
-- Rust itself is installed
-- the repository has moved past pure skeleton into implemented DB/config/search code
-- full cargo validation still requires Windows build tools and SDK libraries on this machine
+## Remaining Deferred Work
 
-## Not Yet Completed In Validation
-
-- `cargo fmt` run confirmation
-- successful `cargo check`
-- successful `cargo test`
-- successful `cargo clippy`
-
-## Next Validation Step
-
-Install or configure the missing Windows MSVC and SDK toolchain, then rerun:
-
-1. `cargo fmt`
-2. `cargo check -p bakkeswap-core -p bakkeswap-cli`
-3. `cargo test -p bakkeswap-core`
-4. `cargo clippy -p bakkeswap-core -p bakkeswap-cli --all-targets -- -D warnings`
+- UPK parser/rebuilder port
+- build command implementation
+- install command implementation
+- restore implementation beyond stubs
+- Tauri wiring to the implemented planner and database services

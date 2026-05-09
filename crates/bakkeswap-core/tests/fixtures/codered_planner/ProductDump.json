@@ -1,0 +1,52 @@
+[
+  {
+    "Product Id": 1001,
+    "Product Long Label": "Target Decal",
+    "Product Short Sort Label": "Target Decal",
+    "Product Currency": false,
+    "Product Blueprint": false,
+    "Product Paintable": true,
+    "Product Quality Id": 3,
+    "Slot Index": 1,
+    "Product Asset Package": "Skin_Target_SF",
+    "Product Asset Path": "Skin_Target_SF.Skin_Target",
+    "Product Thumbnail Package": "Skin_Target_T_SF",
+    "Product Thumbnail Asset": "Skin_Target_T"
+  },
+  {
+    "Product Id": 1002,
+    "Product Long Label": "Source Decal",
+    "Product Short Sort Label": "Source Decal",
+    "Product Currency": false,
+    "Product Blueprint": false,
+    "Product Paintable": true,
+    "Product Quality Id": 5,
+    "Slot Index": 1,
+    "Product Asset Package": "Skin_Source_SF",
+    "Product Asset Path": "Skin_Source_SF.Skin_Source",
+    "Product Thumbnail Package": "Skin_Source_T_SF",
+    "Product Thumbnail Asset": "Skin_Source_T"
+  },
+  {
+    "Product Id": 2001,
+    "Product Long Label": "Mismatched Antenna",
+    "Product Short Sort Label": "Mismatched Antenna",
+    "Product Currency": false,
+    "Product Blueprint": false,
+    "Product Paintable": false,
+    "Product Quality Id": 2,
+    "Slot Index": 4,
+    "Product Asset Package": "Antenna_Source_SF",
+    "Product Asset Path": "Antenna_Source_SF.Antenna_Source"
+  },
+  {
+    "Product Id": 3001,
+    "Product Long Label": "Sample Champion Title",
+    "Product Short Sort Label": "Sample Champion Title",
+    "Product Currency": false,
+    "Product Blueprint": false,
+    "Product Paintable": false,
+    "Product Quality Id": 1,
+    "Slot Index": 99
+  }
+]

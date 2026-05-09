@@ -40,9 +40,7 @@ impl LocalFileIndexer {
             ));
         }
 
-        let cooked_root = cooked_dir
-            .canonicalize()
-            .unwrap_or_else(|_| cooked_dir.to_path_buf());
+        let cooked_root = canonicalize_usable_path(cooked_dir);
         let cooked_root_text = cooked_root.display().to_string();
         let mut entries = fs::read_dir(cooked_dir)
             .with_context(|| {
@@ -54,7 +52,7 @@ impl LocalFileIndexer {
             .collect::<std::result::Result<Vec<_>, _>>()?;
         entries.sort_by_key(|entry| entry.file_name().to_string_lossy().to_lowercase());
 
-        let mut connection = self.database.connect()?;
+        let connection = self.database.connect()?;
         let transaction = connection.unchecked_transaction()?;
         transaction.execute(
             "DELETE FROM local_files WHERE cooked_root = ?1",
@@ -118,4 +116,28 @@ fn sha256_path(path: &Path) -> Result<String> {
     }
 
     Ok(format!("{:x}", hasher.finalize()))
+}
+
+fn canonicalize_usable_path(path: &Path) -> std::path::PathBuf {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    strip_windows_verbatim_prefix(&canonical)
+}
+
+#[cfg(windows)]
+fn strip_windows_verbatim_prefix(path: &Path) -> std::path::PathBuf {
+    let text = path.display().to_string();
+
+    if let Some(stripped) = text.strip_prefix(r"\\?\UNC\") {
+        return std::path::PathBuf::from(format!(r"\\{stripped}"));
+    }
+    if let Some(stripped) = text.strip_prefix(r"\\?\") {
+        return std::path::PathBuf::from(stripped);
+    }
+
+    path.to_path_buf()
+}
+
+#[cfg(not(windows))]
+fn strip_windows_verbatim_prefix(path: &Path) -> std::path::PathBuf {
+    path.to_path_buf()
 }

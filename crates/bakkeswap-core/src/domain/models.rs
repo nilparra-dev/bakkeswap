@@ -61,6 +61,15 @@ pub enum BuildMethod {
     RawRenameCopyForbidden,
 }
 
+impl BuildMethod {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::TargetIdentityRebuild => "target_identity_rebuild",
+            Self::RawRenameCopyForbidden => "raw_rename_copy_forbidden",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapPlanRecord {
     pub plan_id: String,
@@ -76,6 +85,72 @@ pub struct SwapPlanRecord {
     pub target_thumb_identity: Option<String>,
     pub created_at: DateTime<Utc>,
     pub status: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlannedProduct {
+    pub id: i64,
+    pub name: String,
+    pub slot: Option<String>,
+    pub slot_id: Option<i64>,
+    pub quality: Option<String>,
+    pub paintable: bool,
+    pub visual_upk: Option<String>,
+    pub thumb_upk: Option<String>,
+    pub visual_asset: Option<String>,
+    pub thumbnail_asset: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwapOperation {
+    pub kind: String,
+    pub enabled: bool,
+    pub source_filename: Option<String>,
+    pub target_filename: Option<String>,
+    pub source_identity: Option<String>,
+    pub target_identity: Option<String>,
+    pub source_path: Option<String>,
+    pub target_path: Option<String>,
+    pub source_sha256: Option<String>,
+    pub target_sha256: Option<String>,
+    pub backup_path: Option<String>,
+    pub output_path: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CompatibilityCheck {
+    pub same_slot: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanWarning {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanBlocker {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SwapPlan {
+    pub plan_id: String,
+    pub schema_version: i64,
+    pub created_at: DateTime<Utc>,
+    pub profile_name: String,
+    pub offline_only: bool,
+    pub database_path: Option<String>,
+    pub configured_cooked_root: Option<String>,
+    pub target_product: PlannedProduct,
+    pub source_product: PlannedProduct,
+    pub compatibility: CompatibilityCheck,
+    pub operations: Vec<SwapOperation>,
+    pub warnings: Vec<PlanWarning>,
+    pub build_blockers: Vec<PlanBlocker>,
+    pub rollback_notes: Vec<String>,
+    pub plan_path: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
