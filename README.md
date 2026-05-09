@@ -2,7 +2,7 @@
 
 BakkesSwap is a local and offline visual item swapper for Rocket League package-backed cosmetics.
 
-This repository is the public Rust + Tauri + SQLite rewrite workspace. It now contains a stable Rust backend, a CLI, and the first usable desktop GUI, but it is still a developer-facing rewrite rather than a finished packaged release.
+This repository is the public Rust + Tauri + SQLite rewrite workspace. It now contains a stable Rust backend, a CLI, a usable desktop GUI, and a first local Windows beta package, but it is still a beta candidate rather than a finished public release.
 
 ## What BakkesSwap Is
 
@@ -26,7 +26,7 @@ Other players will not see your local visual changes unless they independently m
 
 ## Current Status
 
-This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, a repeatable Phase 5B synthetic sandbox smoke flow, and a completed Phase 5C human click-through polish pass for the desktop app.
+This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, a repeatable Phase 5B synthetic sandbox smoke flow, a completed Phase 5C human click-through polish pass for the desktop app, and a first local Phase 6 Windows beta package candidate.
 
 ### Completed
 
@@ -41,13 +41,15 @@ This repository now contains the stable backend phases through install and resto
 - controlled GUI sandbox smoke helper under `src-tauri`
 - Svelte screens for Home, Game Folder, Database, Quick Swap, Install Preview, Active Swaps, Backups, Diagnostics, and Logs
 - live Phase 5C desktop click-through polish against `target/gui_smoke`
+- local Windows beta bundle artifacts for the desktop app
+- beta packaging docs, offline-only warning collateral, and assembled beta folder output under `dist/beta`
 - architecture, migration, schema, safety, and phase-status docs
 
 ### Not Yet Implemented
 
 - broader golden-answer validation against real known-answer asset cases
 - a dedicated settings screen and nonessential desktop polish
-- packaged desktop release, signing, updater, and release hardening
+- signed or public desktop release, updater, and release hardening
 - any runtime overlay, Player Title module, online features, or anti-cheat bypass work
 
 ## Repository Scope
@@ -138,6 +140,10 @@ Do not commit personal machine paths, real game files, inventory dumps, or gener
 - `docs/GUI_SANDBOX_SMOKE_WORKFLOW.md`
 - `docs/PHASE_5B_GUI_SANDBOX_SMOKE_STATUS.md`
 - `docs/PHASE_5C_HUMAN_GUI_CLICKTHROUGH_STATUS.md`
+- `docs/PHASE_6_PACKAGING_STATUS.md`
+- `docs/PACKAGING_WINDOWS.md`
+- `docs/BETA_RELEASE_CHECKLIST.md`
+- `docs/QUICK_START_BETA.md`
 
 ## Contributing
 
