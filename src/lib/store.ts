@@ -605,7 +605,7 @@ function createAppStore() {
       );
       mutate((state) => {
         state.quick_swap.install_report = report;
-        state.active_page = "active-swaps";
+        state.active_page = report.installed ? "active-swaps" : "install-preview";
       });
       await refreshOverview(false);
     } catch (error) {

@@ -86,8 +86,8 @@ export async function createPlan(
   sourceProductId: number,
 ): Promise<SwapPlan> {
   return invokeCommand<SwapPlan>("create_plan", {
-    target_product_id: targetProductId,
-    source_product_id: sourceProductId,
+    targetProductId,
+    sourceProductId,
   });
 }
 

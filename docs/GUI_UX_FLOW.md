@@ -51,12 +51,13 @@
 1. The user requests install preview for the current built plan.
 2. The backend returns blockers, warnings, file actions, and the exact confirmation phrase.
 3. The risky screen keeps the configured `CookedPCConsole` path visible at all times.
-3. The GUI keeps the confirm action disabled until:
+4. The GUI keeps the confirm action disabled until:
    - preview status is ready
    - blockers are empty
    - the user types the exact backend-issued phrase
-4. The confirmation phrase is rendered prominently instead of being hidden in supporting text.
-5. Optional overwrite of an existing profile backup remains an explicit checkbox, not a silent default.
+5. If execution still returns a blocked install report, the GUI stays on Install Preview and surfaces the execution blockers instead of redirecting away.
+6. The confirmation phrase is rendered prominently instead of being hidden in supporting text.
+7. Optional overwrite of an existing profile backup remains an explicit checkbox, not a silent default.
 
 ## Active Swaps And Restore
 
@@ -82,7 +83,7 @@
 - show configured `CookedPCConsole`
 - show indexed file count, product count, title count, and installed swap count
 - show backup root paths
-- clarify that Phase 5B logs remain session-local and in-memory
+- clarify that logs remain session-local and in-memory for the current desktop session
 
 ## Logs
 

@@ -84,6 +84,7 @@ button {
 .inline-alert,
 .banner,
 .preflight-card {
+  min-width: 0;
   padding: 1.15rem;
 }
 
@@ -141,6 +142,22 @@ button {
   margin: 0;
   color: var(--muted);
   line-height: 1.58;
+  overflow-wrap: anywhere;
+}
+
+.hero-card strong,
+.metric-card strong,
+.detail-list dd,
+.table-like small,
+.confirmation-phrase,
+.sample-list span {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.path-value {
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
 .nav,
@@ -184,6 +201,13 @@ button {
   justify-content: space-between;
   gap: 1rem;
   align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.sidebar-panel-heading > *,
+.panel-heading > *,
+.notice-heading > * {
+  min-width: 0;
 }
 
 .rule-list {
@@ -428,6 +452,16 @@ button {
   border-color: rgba(90, 208, 200, 0.4);
   background: rgba(90, 208, 200, 0.1);
   transform: translateY(-1px);
+}
+
+.table-like article > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.table-like article > div:last-child {
+  justify-items: end;
+  text-align: right;
 }
 
 .result-list button.disabled {

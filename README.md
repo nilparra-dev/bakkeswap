@@ -26,7 +26,7 @@ Other players will not see your local visual changes unless they independently m
 
 ## Current Status
 
-This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, and a repeatable Phase 5B synthetic sandbox smoke flow for the desktop app.
+This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, a repeatable Phase 5B synthetic sandbox smoke flow, and a completed Phase 5C human click-through polish pass for the desktop app.
 
 ### Completed
 
@@ -40,6 +40,7 @@ This repository now contains the stable backend phases through install and resto
 - Tauri command bridge over `bakkeswap-core`
 - controlled GUI sandbox smoke helper under `src-tauri`
 - Svelte screens for Home, Game Folder, Database, Quick Swap, Install Preview, Active Swaps, Backups, Diagnostics, and Logs
+- live Phase 5C desktop click-through polish against `target/gui_smoke`
 - architecture, migration, schema, safety, and phase-status docs
 
 ### Not Yet Implemented
@@ -136,6 +137,7 @@ Do not commit personal machine paths, real game files, inventory dumps, or gener
 - `docs/GUI_UX_FLOW.md`
 - `docs/GUI_SANDBOX_SMOKE_WORKFLOW.md`
 - `docs/PHASE_5B_GUI_SANDBOX_SMOKE_STATUS.md`
+- `docs/PHASE_5C_HUMAN_GUI_CLICKTHROUGH_STATUS.md`
 
 ## Contributing
 

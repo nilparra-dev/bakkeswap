@@ -41,14 +41,28 @@
     "build_plan",
     "install_preview",
     "install_confirmed",
+    "list_installed_swaps",
     "restore_preview",
     "restore_confirmed",
+    "backup_originals_status",
     "backup_originals_verify",
   ];
 
   onMount(() => {
     void appStore.load();
   });
+
+  let pageBadges: Record<PageId, string | null> = {
+    home: null,
+    "game-folder": null,
+    database: null,
+    "quick-swap": null,
+    "install-preview": null,
+    "active-swaps": null,
+    backups: null,
+    diagnostics: null,
+    logs: null,
+  };
 
   $: selectedSwap =
     $appStore.restore.installed_swaps.find(
@@ -89,31 +103,23 @@
     ($appStore.restore.preview?.blockers.length ?? 0) === 0;
   $: restorePhraseMatches =
     $appStore.restore.confirmation.trim() === ($appStore.restore.preview?.confirmation_phrase ?? "");
-
-  function pageBadge(page: PageId): string | null {
-    switch (page) {
-      case "game-folder":
-        return configuredCookedPath ? `${$appStore.app_status?.local_files_count ?? 0} upk` : "Needs setup";
-      case "database":
-        return $appStore.app_status ? `${$appStore.app_status.product_count} items` : null;
-      case "quick-swap":
-        return $appStore.quick_swap.plan?.profile_name ?? null;
-      case "install-preview":
-        return $appStore.quick_swap.install_preview?.status ?? null;
-      case "active-swaps":
-        return `${$appStore.app_status?.active_swap_count ?? 0} active`;
-      case "backups":
-        return $appStore.backups.status
-          ? `${$appStore.backups.status.tracked_file_count} tracked`
-          : null;
-      case "diagnostics":
-        return $appStore.config ? "local paths" : null;
-      case "logs":
-        return `${$appStore.logs.length}`;
-      default:
-        return null;
-    }
-  }
+  $: pageBadges = {
+    home: null,
+    "game-folder": configuredCookedPath
+      ? $appStore.app_status
+        ? `${$appStore.app_status.local_files_count} upk`
+        : "Configured"
+      : "Needs setup",
+    database: $appStore.app_status ? `${$appStore.app_status.product_count} items` : null,
+    "quick-swap": $appStore.quick_swap.plan?.profile_name ?? null,
+    "install-preview": $appStore.quick_swap.install_preview?.status ?? null,
+    "active-swaps": $appStore.app_status ? `${$appStore.app_status.active_swap_count} active` : null,
+    backups: $appStore.backups.status
+      ? `${$appStore.backups.status.tracked_file_count} tracked`
+      : null,
+    diagnostics: $appStore.config ? "local paths" : null,
+    logs: `${$appStore.logs.length}`,
+  };
 
   function noticesFrom(items: Array<UiNotice | string> | null | undefined): UiNotice[] {
     return appStore.noticesFrom(items);
@@ -180,7 +186,7 @@
         tone: "ok",
         label: "Sandbox / project-local",
         detail:
-          "This path looks like a fake or project-local sandbox. It is appropriate for Phase 5B smoke validation.",
+          "This path looks like a fake or project-local sandbox. It is appropriate for Phase 5 sandbox validation.",
       };
     }
 
@@ -339,8 +345,8 @@
           on:click={() => appStore.setActivePage(page.id)}
         >
           <span>{page.label}</span>
-          {#if pageBadge(page.id)}
-            <small>{pageBadge(page.id)}</small>
+          {#if pageBadges[page.id]}
+            <small>{pageBadges[page.id]}</small>
           {/if}
         </button>
       {/each}
@@ -365,7 +371,7 @@
         <h2>Current path</h2>
         <span class={`status-chip ${configuredCookedSafety.tone}`}>{configuredCookedSafety.label}</span>
       </div>
-      <p>{shortPath(configuredCookedPath)}</p>
+      <p class="path-value">{shortPath(configuredCookedPath)}</p>
       <p class="context-note">{configuredCookedSafety.detail}</p>
     </section>
 
@@ -385,12 +391,12 @@
   <main class="content">
     <section class="hero">
       <div>
-        <p class="eyebrow">Phase 5B</p>
-        <h2>Sandbox smoke validation and UX hardening</h2>
+        <p class="eyebrow">Phase 5C</p>
+        <h2>Human GUI click-through polish</h2>
         <p>
-          The desktop app now boots and the Tauri bridge passes a full synthetic install and restore
-          flow in <strong>target/gui_smoke</strong>. This UI pass keeps the frontend thin while making
-          risky actions much harder to misunderstand.
+          This pass compares the real Tauri window against the sandbox smoke workflow in
+          <strong>target/gui_smoke</strong>. The frontend stays thin while small live UX rough edges
+          are tightened without moving backend logic out of Rust.
         </p>
       </div>
 
@@ -403,7 +409,7 @@
         <article class="hero-card">
           <span>Configured CookedPCConsole</span>
           <strong>{configuredCookedSafety.label}</strong>
-          <p>{shortPath(configuredCookedPath)}</p>
+          <p class="path-value">{shortPath(configuredCookedPath)}</p>
         </article>
       </div>
     </section>
@@ -530,7 +536,7 @@
             />
           </label>
           <p class="field-note">
-            Phase 5B smoke validation should point at a fake or copied root such as
+            Phase 5C click-through validation should still point at a fake or copied root such as
             <strong>target\gui_smoke\RocketLeague</strong>.
           </p>
           <div class="action-row">
@@ -879,6 +885,14 @@
             <section class={`inline-alert ${$appStore.quick_swap.install_report.installed ? "success" : "danger"}`}>
               {$appStore.quick_swap.install_report.status} at {formatDate($appStore.quick_swap.install_report.installed_at)}
             </section>
+            {#if !$appStore.quick_swap.install_report.installed}
+              <p class="context-note">
+                Install did not complete. Review the execution blockers below. If this is a repeat
+                install into the same sandbox profile, enable profile backup overwrite and retry.
+              </p>
+            {/if}
+            <NoticeGroup title="Execution warnings" tone="warning" items={noticesFrom($appStore.quick_swap.install_report.warnings)} />
+            <NoticeGroup title="Execution blockers" tone="danger" items={noticesFrom($appStore.quick_swap.install_report.blockers)} />
           {/if}
         {/if}
       </section>
@@ -970,6 +984,8 @@
               <section class={`inline-alert ${$appStore.restore.report.restored ? "success" : "danger"}`}>
                 {$appStore.restore.report.status} at {formatDate($appStore.restore.report.restored_at)}
               </section>
+              <NoticeGroup title="Restore execution warnings" tone="warning" items={noticesFrom($appStore.restore.report.warnings)} />
+              <NoticeGroup title="Restore execution blockers" tone="danger" items={noticesFrom($appStore.restore.report.blockers)} />
             {/if}
             {#if $appStore.restore.error}
               <section class="inline-alert danger">{$appStore.restore.error}</section>
@@ -1042,7 +1058,7 @@
             <div><dt>Configured CookedPCConsole</dt><dd>{shortPath(configuredCookedPath)}</dd></div>
             <div><dt>Profile backups</dt><dd>{shortPath(profileBackupRoot)}</dd></div>
             <div><dt>Original backups</dt><dd>{shortPath($appStore.backups.status?.backup_root)}</dd></div>
-            <div><dt>Session logs</dt><dd>In-memory only in Phase 5B</dd></div>
+            <div><dt>Session logs</dt><dd>In-memory only for the current desktop session</dd></div>
           </dl>
         </article>
 
