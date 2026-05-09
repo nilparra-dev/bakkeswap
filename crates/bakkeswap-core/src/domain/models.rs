@@ -190,6 +190,66 @@ pub struct BuildRecord {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallWarning {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallBlocker {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallPreviewFile {
+    pub kind: String,
+    pub target_filename: String,
+    pub target_path: String,
+    pub built_path: String,
+    pub destination_exists: bool,
+    pub built_exists: bool,
+    pub would_overwrite: bool,
+    pub current_destination_sha256: Option<String>,
+    pub planned_original_sha256: Option<String>,
+    pub built_output_sha256: Option<String>,
+    pub current_matches_planned_original: Option<bool>,
+    pub current_matches_built_output: Option<bool>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupPreview {
+    pub backup_kind: String,
+    pub operation_kind: String,
+    pub target_relative_path: String,
+    pub backup_path: String,
+    pub exists: bool,
+    pub would_create: bool,
+    pub status: String,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct InstallPreview {
+    pub plan_path: String,
+    pub profile_name: String,
+    pub status: String,
+    pub configured_cooked_root: String,
+    pub workspace_root: String,
+    pub build_root: String,
+    pub files: Vec<InstallPreviewFile>,
+    pub profile_backups: Vec<BackupPreview>,
+    pub permanent_original_backups: Vec<BackupPreview>,
+    pub original_backup_manifest_path: String,
+    pub restore_command: String,
+    pub confirmation_phrase: String,
+    pub dry_run_only: bool,
+    pub no_files_written: bool,
+    pub warnings: Vec<InstallWarning>,
+    pub blockers: Vec<InstallBlocker>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstalledSwapRecord {
     pub install_id: String,
     pub plan_id: String,

@@ -44,7 +44,7 @@
 
 - [ ] Implement permanent original backup manager
 - [ ] Implement per-profile backup manager
-- [ ] Implement dry-run install preview
+- [x] Implement dry-run install preview
 - [ ] Implement explicit confirmation for real install
 - [ ] Implement restore by profile
 - [ ] Implement original backup verification
@@ -64,7 +64,7 @@
 - [x] Implement `upk known-answer --output`
 - [x] Implement `upk rebuild-sandbox`
 - [x] Implement `build`
-- [ ] Implement `install --dry-run`
+- [x] Implement `install --dry-run`
 - [ ] Implement `install`
 - [ ] Implement `restore --profile`
 - [x] Implement `status`

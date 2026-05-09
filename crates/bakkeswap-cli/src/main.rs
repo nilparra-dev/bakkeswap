@@ -5,9 +5,10 @@ use bakkeswap_core::database::{
     CodeRedImportSource, DatabaseImporter, DatabaseService, LocalFileIndexer, SearchEngine,
     SearchKind, SearchRequest,
 };
-use bakkeswap_core::domain::models::{PlanBuildReport, SwapPlan};
+use bakkeswap_core::domain::models::{InstallPreview, PlanBuildReport, SwapPlan};
 use bakkeswap_core::services::{
-    BuildPlanRequest, BuildService, PathService, PlannerService, StatusService,
+    BuildPlanRequest, BuildService, InstallPreviewRequest, InstallerService, PathService,
+    PlannerService, StatusService,
 };
 use bakkeswap_core::upk::{
     rebuild_target_identity, KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest,
@@ -145,6 +146,8 @@ struct InstallArgs {
     plan: PathBuf,
     #[arg(long, default_value_t = false)]
     dry_run: bool,
+    #[arg(long, default_value_t = false)]
+    json: bool,
 }
 
 #[derive(Debug, Args)]
@@ -193,14 +196,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         },
         Command::Plan(args) => command_plan(args),
         Command::Build(args) => command_build(args),
-        Command::Install(args) => print_stub_with_value(
-            if args.dry_run {
-                "install --dry-run"
-            } else {
-                "install"
-            },
-            args.plan.display().to_string(),
-        ),
+        Command::Install(args) => command_install(args),
         Command::Restore(args) => print_stub_with_value("restore", args.profile),
         Command::Status => command_status(),
         Command::Backup { command } => match command {
@@ -386,6 +382,28 @@ fn command_build(args: BuildArgs) -> Result<()> {
 
     if report.status != "built" {
         std::process::exit(3);
+    }
+
+    Ok(())
+}
+
+fn command_install(args: InstallArgs) -> Result<()> {
+    let preview = InstallerService::new(DatabaseService::for_current_user()?).install(
+        &InstallPreviewRequest {
+            plan_path: args.plan,
+            dry_run: args.dry_run,
+            ..InstallPreviewRequest::default()
+        },
+    )?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&preview)?);
+    } else {
+        print_install_preview_summary(&preview);
+    }
+
+    if preview.status != "preview_ready" {
+        std::process::exit(4);
     }
 
     Ok(())
@@ -631,6 +649,84 @@ fn print_build_summary(report: &PlanBuildReport) {
             println!("  - {}", warning.message);
         }
     }
+}
+
+fn print_install_preview_summary(preview: &InstallPreview) {
+    let backup_dir = PathBuf::from(&preview.workspace_root)
+        .join("backups")
+        .join(&preview.profile_name);
+
+    println!("Install profile: {}", preview.profile_name);
+    println!(
+        "Configured CookedPCConsole: {}",
+        preview.configured_cooked_root
+    );
+    println!("Backup folder: {}", backup_dir.display());
+    if preview.blockers.is_empty() {
+        println!("Blockers: none");
+    } else {
+        println!("Blockers:");
+        for blocker in &preview.blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if preview.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &preview.warnings {
+            println!("  - {}", warning.message);
+        }
+    }
+
+    println!("CookedPCConsole files that will be overwritten:");
+    if preview.files.is_empty() {
+        println!("  [none]");
+    } else {
+        for file in &preview.files {
+            println!("  {}: {}", file.kind, file.target_path);
+        }
+    }
+
+    println!("Rebuilt source files that will be installed:");
+    if preview.files.is_empty() {
+        println!("  [none]");
+    } else {
+        for file in &preview.files {
+            println!("  {}: {}", file.kind, file.built_path);
+        }
+    }
+
+    println!("Backup targets:");
+    if preview.profile_backups.is_empty() {
+        println!("  [none]");
+    } else {
+        for backup in &preview.profile_backups {
+            println!(
+                "  {}: {} ({})",
+                backup.operation_kind, backup.backup_path, backup.status
+            );
+        }
+    }
+
+    println!("Permanent original backups:");
+    if preview.permanent_original_backups.is_empty() {
+        println!("  [none]");
+    } else {
+        for backup in &preview.permanent_original_backups {
+            println!(
+                "  {}: {} ({})",
+                backup.operation_kind, backup.backup_path, backup.status
+            );
+            for warning in &backup.warnings {
+                println!("    warning: {}", warning);
+            }
+        }
+    }
+
+    println!("Restore command: {}", preview.restore_command);
+    println!("Confirmation phrase: {}", preview.confirmation_phrase);
+    println!("Dry run only. No files were written to CookedPCConsole.");
 }
 
 fn print_known_answer_summary(report: &KnownAnswerReport) {

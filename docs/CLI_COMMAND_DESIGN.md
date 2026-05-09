@@ -195,7 +195,7 @@ Still deferred:
 - install orchestration
 - restore orchestration
 - plan-driven backup handling
-- dry-run install preview from saved builds
+- real install execution from saved builds
 
 ### `bakkeswap install --plan <plan_path> --dry-run`
 
@@ -203,19 +203,38 @@ Purpose:
 
 - preview exact install actions without touching the real game files
 
-Required future behavior:
+Current implementation:
 
-- show exact target files
-- show exact rebuilt files
-- show exact backup targets
-- show permanent original-backup state
-- show restore command or restore target
+- loads the saved `swap_plan.json`
+- requires `--dry-run` and refuses real install execution for this phase
+- verifies the saved plan and last build report are in a successful build state
+- verifies the current configured `CookedPCConsole` exists and resolves install destinations under it
+- verifies built outputs still exist and still match stored build validation hashes when available
+- reports every `CookedPCConsole` file that would be overwritten
+- reports every rebuilt file that would be installed
+- reports per-profile backup targets under `workspace/backups/<profile_name>/`
+- reports permanent original-backup targets under `workspace/original_files_backup/`
+- warns when the configured cooked root differs from the plan's cooked root
+- warns when the current destination hash differs from the original target hash recorded in the plan
+- supports human-readable output by default and `--json` for machine-readable preview data
+
+Still deferred:
+
+- copying any files into `CookedPCConsole`
+- creating profile backups on disk
+- creating permanent original backups on disk
+- writing install manifests or install rows to SQLite
+- confirmation-gated real install execution
 
 ### `bakkeswap install --plan <plan_path>`
 
 Purpose:
 
 - perform a real local install only after explicit operator confirmation
+
+Current behavior:
+
+- refuses with `Real install is not implemented yet. Use --dry-run.`
 
 Required future behavior:
 

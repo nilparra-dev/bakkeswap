@@ -8,7 +8,7 @@ pub mod status;
 
 pub use backups::{PermanentOriginalBackupManager, ProfileBackupManager};
 pub use builder::{BuildPlanRequest, BuildService};
-pub use installer::InstallerService;
+pub use installer::{InstallPreviewRequest, InstallerService};
 pub use paths::PathService;
 pub use planner::PlannerService;
 pub use restore::RestoreService;

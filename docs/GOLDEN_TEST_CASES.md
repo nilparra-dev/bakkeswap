@@ -47,6 +47,17 @@ Before local known-answer samples become release gates, the saved-plan build ser
 6. missing target package paths fail with a helpful blocker message
 7. plan JSON is updated with build status and validation results
 
+## Phase 4A Install Dry-Run Gate
+
+Before any real install path exists, the install preview service must pass these synthetic checks:
+
+1. visual-only saved-plan preview reports the default install target and no files are modified
+2. visual plus thumbnail saved-plan preview reports both install targets and both backup paths
+3. missing built visual output returns a blocked preview
+4. missing CookedPCConsole destination file returns a blocked preview
+5. destination hash drift produces an explicit warning without writing files
+6. install without `--dry-run` refuses with the phase guard message
+
 ## 1. Boost Known-Answer Rebuild
 
 Purpose:
