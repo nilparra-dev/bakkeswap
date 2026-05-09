@@ -1,0 +1,20 @@
+[package]
+name = "bakkeswap-tauri"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[lib]
+name = "bakkeswap_tauri"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.0.0" }
+
+[dependencies]
+bakkeswap-core = { path = "../crates/bakkeswap-core" }
+serde.workspace = true
+serde_json.workspace = true
+tauri = { version = "2.0.0" }
+tracing-subscriber.workspace = true

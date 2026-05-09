@@ -1,0 +1,208 @@
+:root {
+  color-scheme: dark;
+  font-family: "Segoe UI", "Aptos", sans-serif;
+  --bg: #0c1219;
+  --bg-2: #131e2a;
+  --panel: rgba(12, 18, 25, 0.78);
+  --line: rgba(159, 188, 220, 0.14);
+  --text: #e8f0f7;
+  --muted: #93a4b7;
+  --accent: #d68b2f;
+  --accent-2: #7fb1da;
+}
+
+html,
+body,
+#app {
+  margin: 0;
+  min-height: 100%;
+  background:
+    radial-gradient(circle at top left, rgba(214, 139, 47, 0.18), transparent 32%),
+    radial-gradient(circle at bottom right, rgba(127, 177, 218, 0.2), transparent 28%),
+    linear-gradient(160deg, var(--bg), #101824 52%, #0a0f16);
+  color: var(--text);
+}
+
+body {
+  min-height: 100vh;
+}
+
+button {
+  font: inherit;
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: linear-gradient(180deg, rgba(15, 21, 30, 0.94), rgba(8, 13, 18, 0.82));
+  backdrop-filter: blur(18px);
+  padding: 28px 18px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
+}
+
+.brand h1 {
+  margin: 0;
+  font-size: 1.3rem;
+}
+
+.brand p {
+  margin: 4px 0 0;
+  color: var(--muted);
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent), #ffcb7d);
+  color: #1b1611;
+  font-weight: 700;
+}
+
+nav {
+  display: grid;
+  gap: 8px;
+}
+
+nav button {
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+nav button:hover,
+nav button.active {
+  background: rgba(127, 177, 218, 0.08);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.content {
+  padding: 36px;
+}
+
+.hero {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+}
+
+.hero h2 {
+  margin: 8px 0;
+  font-size: clamp(2rem, 4vw, 3.6rem);
+}
+
+.hero p {
+  max-width: 760px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.eyebrow {
+  margin: 0;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-size: 0.8rem;
+}
+
+.status-card,
+.panel {
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: var(--panel);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.28);
+}
+
+.status-card {
+  min-width: 220px;
+  padding: 20px;
+}
+
+.status-card span,
+.status-card small {
+  display: block;
+  color: var(--muted);
+}
+
+.status-card strong {
+  display: block;
+  margin: 8px 0;
+  font-size: 1.3rem;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.panel {
+  padding: 22px;
+}
+
+.panel h3 {
+  margin-top: 0;
+}
+
+.panel ul {
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.panel p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+.panel.accent {
+  background: linear-gradient(180deg, rgba(214, 139, 47, 0.12), rgba(18, 28, 39, 0.9));
+}
+
+@media (max-width: 980px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  nav {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .hero {
+    flex-direction: column;
+    align-items: start;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}
