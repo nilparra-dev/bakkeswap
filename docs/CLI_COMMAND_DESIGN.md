@@ -98,10 +98,52 @@ Current implementation:
 Still deferred:
 
 - any package writing
-- target-identity rebuild logic
-- table re-encryption for rebuilds
-- offset rewriting
+- thumbnail rebuild logic
+- plan-driven build/install integration
 - install or restore operations
+
+### `bakkeswap upk known-answer --source <path> --target <path> [--expected <path>] [--output <path>] [--create-dir]`
+
+Purpose:
+
+- compare Rust sandbox rebuild behavior against a known-answer package without enabling install flows
+
+Current implementation:
+
+- inspects source and target packages in read-only mode
+- inspects the expected known-answer package when provided
+- optionally generates a sandbox-only rebuilt output when `--output` is provided
+- validates that the generated output parses, decrypts, decompresses, preserves the source body, and exposes the target identity
+- compares generated output bytes against the expected package when both are provided
+- supports human-readable output by default and `--json` for machine-readable reports
+
+Still deferred:
+
+- any write path that targets the live game install
+- any plan/build/install/restore orchestration around known-answer runs
+
+### `bakkeswap upk rebuild-sandbox --source <path> --target <path> --output <path> [--create-dir]`
+
+Purpose:
+
+- emit a rebuilt target-identity `.upk` to an explicit sandbox path only
+
+Current implementation:
+
+- parses source and target packages
+- preserves the source decompressed body
+- ensures the target identity exists in the NameTable
+- rewrites matching export object-name refs to the target identity
+- shifts nonzero export serial offsets by the header name-table delta
+- re-encrypts the header table region and re-emits chunk metadata
+- validates the written output by reparsing, decrypting, decompressing, and comparing body hashes
+- rejects output paths that target the source file, target file, `CookedPCConsole`, or the configured cooked directory
+
+Still deferred:
+
+- plan-driven build execution
+- thumbnail rebuild output
+- any install or restore flow
 
 ### `bakkeswap plan --target <product_id> --source <product_id>`
 
@@ -135,7 +177,7 @@ Purpose:
 
 Required future behavior:
 
-- reuse the proven target-identity rebuild method
+- reuse the sandbox-proven target-identity rebuild method from `upk rebuild-sandbox`
 - validate body equality and export-reference changes
 - save build record and validation results
 
@@ -215,6 +257,7 @@ Purpose:
 ## Safety Rules
 
 - automated validation must use sandbox paths only
+- sandbox rebuild commands must require an explicit output path outside `CookedPCConsole`
 - no real CookedPCConsole writes during tests
 - no online or anti-cheat-adjacent behavior
 - no server inventory changes

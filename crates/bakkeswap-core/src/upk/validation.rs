@@ -57,6 +57,37 @@ pub struct RebuildValidationSummary {
     pub warnings: Vec<String>,
 }
 
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SandboxRebuildValidationResult {
+    pub output_exists: bool,
+    pub filename_matches_target: bool,
+    pub output_parses: bool,
+    pub output_decrypts_tables: bool,
+    pub output_decompresses: bool,
+    pub body_equals_source: bool,
+    pub target_name_present: bool,
+    pub target_export_name_count: usize,
+    pub modified_export_indices: Vec<usize>,
+    pub output_sha256: Option<String>,
+    pub source_body_sha256: Option<String>,
+    pub output_body_sha256: Option<String>,
+    pub warnings: Vec<String>,
+    pub passed: bool,
+}
+
+impl SandboxRebuildValidationResult {
+    pub fn refresh_passed(&mut self) {
+        self.passed = self.output_exists
+            && self.filename_matches_target
+            && self.output_parses
+            && self.output_decrypts_tables
+            && self.output_decompresses
+            && self.body_equals_source
+            && self.target_name_present
+            && self.target_export_name_count >= self.modified_export_indices.len();
+    }
+}
+
 pub fn compare_bytes(
     expected: &[u8],
     actual: &[u8],
@@ -98,7 +129,7 @@ pub fn compare_bytes(
 
 #[cfg(test)]
 mod tests {
-    use super::compare_bytes;
+    use super::{compare_bytes, SandboxRebuildValidationResult};
 
     #[test]
     fn reports_first_difference_and_length_mismatch() {
@@ -109,5 +140,27 @@ mod tests {
 
         let length_only = compare_bytes(&[1, 2, 3], &[1, 2, 3, 4], 4);
         assert_eq!(length_only.first_difference_offset, Some(3));
+    }
+
+    #[test]
+    fn refreshes_passed_state_from_required_checks() {
+        let mut validation = SandboxRebuildValidationResult {
+            output_exists: true,
+            filename_matches_target: true,
+            output_parses: true,
+            output_decrypts_tables: true,
+            output_decompresses: true,
+            body_equals_source: true,
+            target_name_present: true,
+            target_export_name_count: 2,
+            modified_export_indices: vec![0, 3],
+            ..SandboxRebuildValidationResult::default()
+        };
+        validation.refresh_passed();
+        assert!(validation.passed);
+
+        validation.filename_matches_target = false;
+        validation.refresh_passed();
+        assert!(!validation.passed);
     }
 }

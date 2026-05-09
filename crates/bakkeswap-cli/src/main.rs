@@ -8,8 +8,9 @@ use bakkeswap_core::database::{
 use bakkeswap_core::domain::models::SwapPlan;
 use bakkeswap_core::services::{PathService, PlannerService, StatusService};
 use bakkeswap_core::upk::{
-    KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest, TableCountSnapshot,
-    UpkInspectReport, UpkInspector,
+    rebuild_target_identity, KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest,
+    SandboxRebuildOptions, SandboxRebuildReport, TableCountSnapshot, UpkInspectReport,
+    UpkInspector,
 };
 use clap::{Args, Parser, Subcommand};
 use serde_json::json;
@@ -65,6 +66,7 @@ enum DbCommand {
 enum UpkCommand {
     Inspect(UpkInspectArgs),
     KnownAnswer(UpkKnownAnswerArgs),
+    RebuildSandbox(UpkRebuildSandboxArgs),
 }
 
 #[derive(Debug, Args)]
@@ -91,6 +93,24 @@ struct UpkKnownAnswerArgs {
     target: PathBuf,
     #[arg(long)]
     expected: Option<PathBuf>,
+    #[arg(long)]
+    output: Option<PathBuf>,
+    #[arg(long, default_value_t = false)]
+    create_dir: bool,
+    #[arg(long, default_value_t = false)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct UpkRebuildSandboxArgs {
+    #[arg(long)]
+    source: PathBuf,
+    #[arg(long)]
+    target: PathBuf,
+    #[arg(long)]
+    output: PathBuf,
+    #[arg(long, default_value_t = false)]
+    create_dir: bool,
     #[arg(long, default_value_t = false)]
     json: bool,
 }
@@ -161,6 +181,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Upk { command } => match command {
             UpkCommand::Inspect(args) => command_upk_inspect(args),
             UpkCommand::KnownAnswer(args) => command_upk_known_answer(args),
+            UpkCommand::RebuildSandbox(args) => command_upk_rebuild_sandbox(args),
         },
         Command::Plan(args) => command_plan(args),
         Command::Build(args) => print_stub_with_value("build", args.plan.display().to_string()),
@@ -281,18 +302,44 @@ fn command_upk_inspect(args: UpkInspectArgs) -> Result<()> {
 
 fn command_upk_known_answer(args: UpkKnownAnswerArgs) -> Result<()> {
     let harness = KnownAnswerHarness::default();
+    let configured_cooked_dir = configured_cooked_dir_string()?;
     let report = harness.analyze(&KnownAnswerRequest {
         source_path: args.source,
         target_path: args.target,
         expected_path: args.expected,
-        generated_output_path: None,
+        generated_output_path: args.output,
         sandbox_output_root: None,
+        sandbox_rebuild_options: SandboxRebuildOptions {
+            create_dir: args.create_dir,
+            configured_cooked_dir,
+            ..SandboxRebuildOptions::default()
+        },
     })?;
 
     if args.json {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         print_known_answer_summary(&report);
+    }
+    Ok(())
+}
+
+fn command_upk_rebuild_sandbox(args: UpkRebuildSandboxArgs) -> Result<()> {
+    let report = rebuild_target_identity(
+        &args.source,
+        &args.target,
+        &args.output,
+        &SandboxRebuildOptions {
+            create_dir: args.create_dir,
+            configured_cooked_dir: configured_cooked_dir_string()?,
+            ..SandboxRebuildOptions::default()
+        },
+    )?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print_sandbox_rebuild_summary(&report);
     }
     Ok(())
 }
@@ -504,6 +551,15 @@ fn print_known_answer_summary(report: &KnownAnswerReport) {
             .unwrap_or("[not provided]")
     );
     println!(
+        "Generated output: {}",
+        report
+            .generated_output
+            .as_ref()
+            .map(|value| value.path.as_str())
+            .or(report.output_plan.sandbox_output_path.as_deref())
+            .unwrap_or("[not generated]")
+    );
+    println!(
         "Source identity: {}",
         report.source_identity.as_deref().unwrap_or("[not derived]")
     );
@@ -562,6 +618,21 @@ fn print_known_answer_summary(report: &KnownAnswerReport) {
         "Compared output exposes target identity: {}",
         yes_no_option(report.validation.target_identity_present)
     );
+    println!(
+        "Modified export refs detected: {}",
+        yes_no_option(report.validation.modified_export_refs_detected)
+    );
+    if let Some(rebuild) = &report.generated_rebuild {
+        println!(
+            "Sandbox rebuild validation passed: {}",
+            yes_no(rebuild.validation.passed)
+        );
+        println!(
+            "Modified export indices: {}",
+            format_indices(&rebuild.modified_export_indices)
+        );
+        println!("Rebuilt output filename: {}", rebuild.output_filename);
+    }
     println!("Table counts:");
     println!(
         "  source:   {}",
@@ -596,6 +667,50 @@ fn print_known_answer_summary(report: &KnownAnswerReport) {
     } else {
         println!("Warnings:");
         for warning in &report.warnings {
+            println!("  - {}", warning);
+        }
+    }
+}
+
+fn print_sandbox_rebuild_summary(report: &SandboxRebuildReport) {
+    println!("Sandbox rebuild:");
+    println!("Source: {}", report.source_path);
+    println!("Target: {}", report.target_path);
+    println!("Output: {}", report.output_path);
+    println!("Source identity: {}", report.source_identity);
+    println!("Target identity: {}", report.target_identity);
+    println!("Output filename: {}", report.output_filename);
+    println!(
+        "Appended target name: {}",
+        report.appended_target_name.as_deref().unwrap_or("[no]")
+    );
+    println!("Header name delta: {}", report.name_delta);
+    println!(
+        "Modified export indices: {}",
+        format_indices(&report.modified_export_indices)
+    );
+    println!("Validation passed: {}", yes_no(report.validation.passed));
+    println!(
+        "Filename matches target: {}",
+        yes_no(report.validation.filename_matches_target)
+    );
+    println!(
+        "Body equals source: {}",
+        yes_no(report.validation.body_equals_source)
+    );
+    println!(
+        "Target name present: {}",
+        yes_no(report.validation.target_name_present)
+    );
+    println!(
+        "Target export ref count: {}",
+        report.validation.target_export_name_count
+    );
+    if report.validation.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &report.validation.warnings {
             println!("  - {}", warning);
         }
     }
@@ -644,6 +759,24 @@ fn format_table_counts(snapshot: &TableCountSnapshot) -> String {
             .map(|value| value.to_string())
             .unwrap_or_else(|| "[not parsed]".to_string())
     )
+}
+
+fn format_indices(values: &[usize]) -> String {
+    if values.is_empty() {
+        return "[none]".to_string();
+    }
+
+    values
+        .iter()
+        .map(|value| value.to_string())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn configured_cooked_dir_string() -> Result<Option<String>> {
+    Ok(PathService::new(DatabaseService::for_current_user()?)
+        .configured_cooked_dir()?
+        .map(|value| value.display().to_string()))
 }
 
 fn print_stub(command: &str) -> Result<()> {

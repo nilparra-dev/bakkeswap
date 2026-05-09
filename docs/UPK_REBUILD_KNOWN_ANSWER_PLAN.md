@@ -17,19 +17,22 @@ The current safe CLI surface is:
 
 - `bakkeswap upk known-answer --source <path> --target <path> --expected <path>`
 - `bakkeswap upk known-answer --source <path> --target <path> --expected <path> --json`
+- `bakkeswap upk known-answer --source <path> --target <path> --output <path>`
+- `bakkeswap upk known-answer --source <path> --target <path> --expected <path> --output <path> --json`
 
-Current behavior is read-only:
+Current behavior is read-only unless an explicit sandbox output path is provided:
 
 - inspect source package
 - inspect target package
 - inspect expected known-answer package when provided
+- generate a sandbox-only rebuilt output when `--output` is provided
+- validate that the generated output parses, decrypts, decompresses, preserves the source body, and exposes the target identity
 - compare decompressed body hashes when available
 - compare table-count snapshots
-- derive the planned profile name and output filename for later sandbox generation
+- derive the planned profile name and output filename for sandbox generation
 
 Current non-behavior:
 
-- no package generation
 - no install
 - no restore
 - no writing to the game folder
@@ -66,7 +69,7 @@ Example local workflow:
 
 1. place source, target, and expected known-answer `.upk` files under `local_samples/`
 2. run the known-answer command against those local-only paths
-3. keep all generated or temporary outputs inside a separate sandbox-only folder when generation is later enabled
+3. keep all generated or temporary outputs inside a separate sandbox-only folder when generation is enabled
 
 ## Current Comparison Model
 
@@ -80,7 +83,7 @@ The current harness can already report:
 - body hash match or mismatch
 - table-count snapshots for source, target, expected, and later generated output
 
-The current API also supports a future optional generated-output path. When the writer exists, that path can be compared byte-for-byte against the expected known-answer package and the first divergence offset can be reported.
+The current API supports an optional generated-output path. When provided, the harness writes a sandbox-only rebuilt package there and can compare it byte-for-byte against the expected known-answer package while reporting the first divergence offset.
 
 ## Acceptance Targets For Future Sandbox Output
 

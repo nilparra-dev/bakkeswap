@@ -6,7 +6,7 @@ This document defines what the Rust UPK writer is allowed to do once implemented
 
 ## Current State
 
-The repository now contains a writer planning surface in `writer.rs`, but real package generation remains disabled.
+The repository now contains a sandbox-only target-identity rebuilder in `writer.rs`.
 
 The current writer-related code may:
 
@@ -14,10 +14,13 @@ The current writer-related code may:
 - derive a target output filename
 - derive a sandbox output path
 - describe a sandbox-only write plan
+- emit a rebuilt `.upk` only when the caller provides an explicit sandbox output path
+- validate the rebuilt output by reparsing, decrypting, decompressing, and comparing the body hash
+- reject unsafe output paths that point at the source package, target package, `CookedPCConsole`, or the configured cooked directory
+- power `bakkeswap upk rebuild-sandbox` and `bakkeswap upk known-answer --output`
 
 The current writer-related code may not:
 
-- emit a modified `.upk`
 - write into `CookedPCConsole`
 - install into the Rocket League folder
 - restore game files
@@ -36,9 +39,16 @@ These boundaries are mandatory:
 
 ## Sandbox Output Rule
 
-If package generation is enabled in a later phase, it must only write under an explicit sandbox output root chosen by the developer.
+Package generation must only write to an explicit sandbox destination chosen by the developer.
 
 It must not infer or silently default to the live game folder.
+
+Additional enforced rules:
+
+- output path must end with `.upk`
+- output path must not equal the source package path
+- output path must not equal the target package path
+- parent directory must already exist unless the caller explicitly enables directory creation
 
 Examples of acceptable future destinations:
 
@@ -55,7 +65,7 @@ Examples of unacceptable destinations:
 
 `bakkeswap build` must remain stubbed until all of the following are true:
 
-1. sandbox-only writer primitives exist
+1. sandbox-only writer output is integrated with saved plans instead of ad hoc package paths
 2. known-answer validation exists for generated outputs
 3. generated outputs can be compared against validated local samples
 4. the command surface makes the sandbox-only boundary explicit
@@ -81,4 +91,4 @@ Developer `.upk` samples remain local-only:
 - do not commit samples
 - do not commit generated outputs
 
-The repository should continue to rely on ignored local-only samples and synthetic tests until a sandbox-only writer is fully validated.
+The repository should continue to rely on ignored local-only samples and synthetic tests until plan-driven builds and local known-answer cases are fully validated.

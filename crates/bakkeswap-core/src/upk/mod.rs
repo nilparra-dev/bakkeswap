@@ -37,7 +37,10 @@ pub use tables::{DependsEntry, DependsTable, TableDecryptionInfo};
 pub use validate::{collect_string_evidence, collect_table_name_evidence, UpkInspectStatus};
 pub use validation::{
     compare_bytes, ByteComparisonReport, ByteDifference, RebuildValidationSummary,
-    TableCountComparison, TableCountSnapshot,
+    SandboxRebuildValidationResult, TableCountComparison, TableCountSnapshot,
 };
 pub use validator::{UpkValidationReport, UpkValidator};
-pub use writer::{SandboxWritePlan, SandboxWriteRequest, UpkWriter};
+pub use writer::{
+    rebuild_target_identity, SandboxRebuildOptions, SandboxRebuildReport, SandboxWritePlan,
+    SandboxWriteRequest, UpkWriter,
+};

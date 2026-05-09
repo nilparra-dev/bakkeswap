@@ -13,15 +13,15 @@
 ## Core `.upk` Port
 
 - [x] Port encrypted table reader
-- [ ] Port encrypted table writer
+- [x] Port encrypted table writer
 - [x] Port read-only package summary/header parsing
 - [x] Port Rocket League compressed chunk reader and zlib decompression
 - [x] Port NameTable parser (read-only)
 - [x] Port ImportTable parser (read-only)
 - [x] Port ExportTable parser (read-only)
 - [x] Port DependsTable parser (read-only)
-- [ ] Port target-identity rebuild logic
-- [ ] Port rebuild validation logic
+- [x] Port target-identity rebuild logic for sandbox output
+- [x] Port rebuild validation logic for sandbox output
 
 ## Metadata And SQLite
 
@@ -35,7 +35,8 @@
 
 - [x] Implement TARGET/SOURCE plan resolution
 - [x] Persist plans to SQLite and disk
-- [ ] Build visual package outputs
+- [x] Emit sandbox-only visual package outputs
+- [ ] Build visual package outputs from saved plans
 - [ ] Build thumbnail package outputs when present
 - [ ] Save validation reports for builds
 
@@ -60,6 +61,8 @@
 - [x] Implement `search`
 - [x] Implement `plan`
 - [x] Implement `upk inspect`
+- [x] Implement `upk known-answer --output`
+- [x] Implement `upk rebuild-sandbox`
 - [ ] Implement `build`
 - [ ] Implement `install --dry-run`
 - [ ] Implement `install`
@@ -70,6 +73,7 @@
 
 ## Golden Validation
 
+- [x] Synthetic sandbox rebuild tests pass
 - [ ] Boost known-answer rebuild passes in sandbox
 - [ ] Affluenter on Unzipped passes in sandbox
 - [ ] Contagion on Standard banner passes in sandbox
