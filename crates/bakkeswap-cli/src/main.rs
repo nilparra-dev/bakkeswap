@@ -7,7 +7,10 @@ use bakkeswap_core::database::{
 };
 use bakkeswap_core::domain::models::SwapPlan;
 use bakkeswap_core::services::{PathService, PlannerService, StatusService};
-use bakkeswap_core::upk::{UpkInspectReport, UpkInspector};
+use bakkeswap_core::upk::{
+    KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest, TableCountSnapshot,
+    UpkInspectReport, UpkInspector,
+};
 use clap::{Args, Parser, Subcommand};
 use serde_json::json;
 
@@ -61,6 +64,7 @@ enum DbCommand {
 #[derive(Debug, Subcommand)]
 enum UpkCommand {
     Inspect(UpkInspectArgs),
+    KnownAnswer(UpkKnownAnswerArgs),
 }
 
 #[derive(Debug, Args)]
@@ -75,6 +79,18 @@ struct SearchArgs {
 #[derive(Debug, Args)]
 struct UpkInspectArgs {
     path: PathBuf,
+    #[arg(long, default_value_t = false)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct UpkKnownAnswerArgs {
+    #[arg(long)]
+    source: PathBuf,
+    #[arg(long)]
+    target: PathBuf,
+    #[arg(long)]
+    expected: Option<PathBuf>,
     #[arg(long, default_value_t = false)]
     json: bool,
 }
@@ -144,6 +160,7 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Search(args) => command_search(args),
         Command::Upk { command } => match command {
             UpkCommand::Inspect(args) => command_upk_inspect(args),
+            UpkCommand::KnownAnswer(args) => command_upk_known_answer(args),
         },
         Command::Plan(args) => command_plan(args),
         Command::Build(args) => print_stub_with_value("build", args.plan.display().to_string()),
@@ -258,6 +275,24 @@ fn command_upk_inspect(args: UpkInspectArgs) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&report)?);
     } else {
         print_upk_inspect_summary(&report);
+    }
+    Ok(())
+}
+
+fn command_upk_known_answer(args: UpkKnownAnswerArgs) -> Result<()> {
+    let harness = KnownAnswerHarness::default();
+    let report = harness.analyze(&KnownAnswerRequest {
+        source_path: args.source,
+        target_path: args.target,
+        expected_path: args.expected,
+        generated_output_path: None,
+        sandbox_output_root: None,
+    })?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print_known_answer_summary(&report);
     }
     Ok(())
 }
@@ -456,6 +491,116 @@ fn print_upk_inspect_summary(report: &UpkInspectReport) {
     }
 }
 
+fn print_known_answer_summary(report: &KnownAnswerReport) {
+    println!("Known-answer harness:");
+    println!("Source: {}", report.source.path);
+    println!("Target: {}", report.target.path);
+    println!(
+        "Expected: {}",
+        report
+            .expected
+            .as_ref()
+            .map(|value| value.path.as_str())
+            .unwrap_or("[not provided]")
+    );
+    println!(
+        "Source identity: {}",
+        report.source_identity.as_deref().unwrap_or("[not derived]")
+    );
+    println!(
+        "Target identity: {}",
+        report.target_identity.as_deref().unwrap_or("[not derived]")
+    );
+    println!(
+        "Expected identity: {}",
+        report
+            .expected_identity
+            .as_deref()
+            .unwrap_or("[not derived]")
+    );
+    println!(
+        "Target identity candidates: {}",
+        if report.target_identity_candidates.is_empty() {
+            "[none]".to_string()
+        } else {
+            report.target_identity_candidates.join(", ")
+        }
+    );
+    println!(
+        "Planned profile: {}",
+        report
+            .output_plan
+            .profile_name
+            .as_deref()
+            .unwrap_or("[not resolved]")
+    );
+    println!(
+        "Planned output filename: {}",
+        report
+            .output_plan
+            .target_filename
+            .as_deref()
+            .unwrap_or("[not resolved]")
+    );
+    println!(
+        "Sandbox output path: {}",
+        report
+            .output_plan
+            .sandbox_output_path
+            .as_deref()
+            .unwrap_or("[not configured]")
+    );
+    println!(
+        "Writer enabled: {}",
+        yes_no(report.output_plan.generation_enabled)
+    );
+    println!(
+        "Compared output body matches source: {}",
+        yes_no_option(report.validation.source_body_matches_output_body)
+    );
+    println!(
+        "Compared output exposes target identity: {}",
+        yes_no_option(report.validation.target_identity_present)
+    );
+    println!("Table counts:");
+    println!(
+        "  source:   {}",
+        format_table_counts(&report.table_counts.source)
+    );
+    println!(
+        "  target:   {}",
+        format_table_counts(&report.table_counts.target)
+    );
+    if let Some(expected) = &report.table_counts.expected {
+        println!("  expected: {}", format_table_counts(expected));
+    }
+    if let Some(output) = &report.table_counts.generated_output {
+        println!("  output:   {}", format_table_counts(output));
+    }
+    if let Some(byte_comparison) = &report.validation.byte_comparison {
+        println!(
+            "Byte comparison: exact={} first_diff={} expected_len={} actual_len={}",
+            yes_no(byte_comparison.exact_match),
+            byte_comparison
+                .first_difference_offset
+                .map(|value| format!("0x{value:X}"))
+                .unwrap_or_else(|| "[none]".to_string()),
+            byte_comparison.expected_len,
+            byte_comparison.actual_len,
+        );
+    } else {
+        println!("Byte comparison: [not available]");
+    }
+    if report.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {}", warning);
+        }
+    }
+}
+
 fn truncate(value: &str, max_len: usize) -> String {
     if value.chars().count() <= max_len {
         return value.to_string();
@@ -475,6 +620,30 @@ fn yes_no(value: bool) -> &'static str {
     } else {
         "no"
     }
+}
+
+fn yes_no_option(value: Option<bool>) -> &'static str {
+    match value {
+        Some(value) => yes_no(value),
+        None => "n/a",
+    }
+}
+
+fn format_table_counts(snapshot: &TableCountSnapshot) -> String {
+    format!(
+        "names={} imports={} exports={} depends={} chunks={}",
+        snapshot.name_count,
+        snapshot.import_count,
+        snapshot.export_count,
+        snapshot
+            .depends_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "[not parsed]".to_string()),
+        snapshot
+            .compressed_chunk_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "[not parsed]".to_string())
+    )
 }
 
 fn print_stub(command: &str) -> Result<()> {
