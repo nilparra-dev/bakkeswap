@@ -7,6 +7,7 @@ use bakkeswap_core::database::{
 };
 use bakkeswap_core::domain::models::SwapPlan;
 use bakkeswap_core::services::{PathService, PlannerService, StatusService};
+use bakkeswap_core::upk::{UpkInspectReport, UpkInspector};
 use clap::{Args, Parser, Subcommand};
 use serde_json::json;
 
@@ -29,6 +30,10 @@ enum Command {
         command: DbCommand,
     },
     Search(SearchArgs),
+    Upk {
+        #[command(subcommand)]
+        command: UpkCommand,
+    },
     Plan(PlanArgs),
     Build(BuildArgs),
     Install(InstallArgs),
@@ -53,11 +58,23 @@ enum DbCommand {
     Refresh,
 }
 
+#[derive(Debug, Subcommand)]
+enum UpkCommand {
+    Inspect(UpkInspectArgs),
+}
+
 #[derive(Debug, Args)]
 struct SearchArgs {
     query: String,
     #[arg(long, default_value_t = 25)]
     limit: usize,
+    #[arg(long, default_value_t = false)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct UpkInspectArgs {
+    path: PathBuf,
     #[arg(long, default_value_t = false)]
     json: bool,
 }
@@ -125,6 +142,9 @@ fn dispatch(cli: Cli) -> Result<()> {
             DbCommand::Refresh => command_db_refresh(),
         },
         Command::Search(args) => command_search(args),
+        Command::Upk { command } => match command {
+            UpkCommand::Inspect(args) => command_upk_inspect(args),
+        },
         Command::Plan(args) => command_plan(args),
         Command::Build(args) => print_stub_with_value("build", args.plan.display().to_string()),
         Command::Install(args) => print_stub_with_value(
@@ -228,6 +248,16 @@ fn command_search(args: SearchArgs) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&hits)?);
     } else {
         print_search_table(&hits);
+    }
+    Ok(())
+}
+
+fn command_upk_inspect(args: UpkInspectArgs) -> Result<()> {
+    let report = UpkInspector.inspect_path(&args.path)?;
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print_upk_inspect_summary(&report);
     }
     Ok(())
 }
@@ -348,6 +378,84 @@ fn print_plan_summary(plan: &SwapPlan) {
     }
 }
 
+fn print_upk_inspect_summary(report: &UpkInspectReport) {
+    println!("File: {}", report.path);
+    println!("Size: {} bytes", report.file_size);
+    println!("SHA256: {}", report.sha256);
+    println!(
+        "Version: file={} licensee={}",
+        report.file_version, report.licensee_version
+    );
+    println!("Magic: {}", report.magic);
+    println!(
+        "Rocket League UE3: {}",
+        if report.is_probable_rocket_league {
+            "yes"
+        } else {
+            "no"
+        }
+    );
+    println!("Header size: {}", report.total_header_size);
+    println!("Package flags: {}", report.package_flags);
+    println!("Compression flags: {}", report.compression_flags);
+    println!(
+        "Counts: names={} imports={} exports={} depends={}",
+        report.name_count,
+        report.import_count,
+        report.export_count,
+        report
+            .depends_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "[not parsed]".to_string())
+    );
+    println!(
+        "Compressed chunks: {}",
+        report
+            .compressed_chunk_count
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "[not parsed]".to_string())
+    );
+    println!(
+        "Decompressed body: size={} sha256={}",
+        report
+            .decompressed_body_size
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "[not available]".to_string()),
+        report
+            .decompressed_body_sha256
+            .clone()
+            .unwrap_or_else(|| "[not available]".to_string())
+    );
+    println!(
+        "Status: summary={} rl={} decrypted={} names={} imports={} exports={} depends={} chunks={} body={}",
+        yes_no(report.status.summary_parsed),
+        yes_no(report.status.detected_rocket_league_format),
+        yes_no(report.status.tables_decrypted),
+        yes_no(report.status.name_table_parsed),
+        yes_no(report.status.import_table_parsed),
+        yes_no(report.status.export_table_parsed),
+        yes_no(report.status.depends_table_parsed),
+        yes_no(report.status.compressed_chunks_parsed),
+        yes_no(report.status.body_decompressed),
+    );
+    if report.string_evidence.is_empty() {
+        println!("String evidence: none");
+    } else {
+        println!("String evidence:");
+        for value in &report.string_evidence {
+            println!("  - {}", value);
+        }
+    }
+    if report.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {}", warning);
+        }
+    }
+}
+
 fn truncate(value: &str, max_len: usize) -> String {
     if value.chars().count() <= max_len {
         return value.to_string();
@@ -359,6 +467,14 @@ fn truncate(value: &str, max_len: usize) -> String {
         .collect::<String>();
     output.push('…');
     output
+}
+
+fn yes_no(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
+    }
 }
 
 fn print_stub(command: &str) -> Result<()> {

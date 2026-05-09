@@ -21,6 +21,7 @@ pnpm-debug.log*
 *.sqlite
 *.sqlite3
 *.db
+local_samples/
 
 workspace/
 backups/

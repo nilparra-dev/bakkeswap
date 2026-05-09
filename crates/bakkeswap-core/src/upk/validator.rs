@@ -14,7 +14,11 @@ pub struct UpkValidationReport {
 pub struct UpkValidator;
 
 impl UpkValidator {
-    pub fn validate_rebuild(&self, _built_visual_path: &str, _source_visual_path: &str) -> Result<UpkValidationReport> {
+    pub fn validate_rebuild(
+        &self,
+        _built_visual_path: &str,
+        _source_visual_path: &str,
+    ) -> Result<UpkValidationReport> {
         bail!("not implemented: upk validator")
     }
 }

@@ -78,6 +78,31 @@ Required future behavior:
 - fast local search from SQLite
 - clear TARGET versus SOURCE selection semantics in future UI integration
 
+### `bakkeswap upk inspect <path>`
+
+Purpose:
+
+- inspect a local `.upk` file in read-only mode
+
+Current implementation:
+
+- reads package magic, file version, and licensee version
+- parses the package summary/header fields used by the Python prototype
+- detects the Rocket League UE3 package profile heuristically
+- decrypts the header table region with the solved Rocket League AES-256-ECB key
+- parses NameTable, ImportTable, ExportTable, and DependsTable when the decrypted region is valid
+- parses Rocket League compressed chunk metadata and decompresses the body with zlib
+- computes file SHA-256 and decompressed body SHA-256
+- supports human-readable output by default and `--json` output for machine-readable inspection
+
+Still deferred:
+
+- any package writing
+- target-identity rebuild logic
+- table re-encryption for rebuilds
+- offset rewriting
+- install or restore operations
+
 ### `bakkeswap plan --target <product_id> --source <product_id>`
 
 Purpose:
@@ -177,6 +202,7 @@ Purpose:
 - error messages must say why the operation is blocked and what the operator should fix next
 - commands that would touch real game files must remain explicit and confirmation-gated
 - plan output should preserve blockers and warnings instead of silently guessing around missing packages
+- UPK inspection output must remain read-only and should prefer warnings over silent partial parses when non-fatal inspection steps fail
 
 ## Exit Code Rules
 
