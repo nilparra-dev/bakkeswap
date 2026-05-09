@@ -23,6 +23,7 @@ pub struct SearchHit {
     pub id: String,
     pub name: String,
     pub slot: Option<String>,
+    pub quality: Option<String>,
     pub product_asset_package: Option<String>,
     pub product_thumbnail_package: Option<String>,
     pub swappable: bool,
@@ -54,7 +55,7 @@ impl SearchEngine {
         let mut hits = Vec::new();
 
         let mut product_statement = connection.prepare(
-            "SELECT product_id, name, slot, product_asset_package, product_thumbnail_package
+            "SELECT product_id, name, slot, quality, product_asset_package, product_thumbnail_package
              FROM products
              WHERE CAST(product_id AS TEXT) = ?1
                 OR lower(name) LIKE ?2
@@ -73,8 +74,9 @@ impl SearchEngine {
                     id: row.get::<_, i64>(0)?.to_string(),
                     name: row.get(1)?,
                     slot: row.get(2)?,
-                    product_asset_package: row.get(3)?,
-                    product_thumbnail_package: row.get(4)?,
+                    quality: row.get(3)?,
+                    product_asset_package: row.get(4)?,
+                    product_thumbnail_package: row.get(5)?,
                     swappable: true,
                     note: None,
                 })
@@ -96,6 +98,7 @@ impl SearchEngine {
                 id: row.get(0)?,
                 name: row.get(1)?,
                 slot: None,
+                quality: None,
                 product_asset_package: None,
                 product_thumbnail_package: None,
                 swappable: false,

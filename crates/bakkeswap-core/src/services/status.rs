@@ -31,7 +31,7 @@ impl StatusService {
         )? as usize;
         let original_backup_count = count_query(
             &connection,
-            "SELECT COUNT(*) FROM original_backups WHERE backup_kind = 'original'",
+            "SELECT COUNT(*) FROM original_backups WHERE backup_kind = 'permanent_original'",
         )? as usize;
         let profile_backup_count = count_query(
             &connection,
@@ -44,6 +44,7 @@ impl StatusService {
             configured_codered_dumps_dir: setting(&connection, CODERED_DUMPS_DIR_KEY)?,
             database_ready: true,
             local_files_indexed: local_files_count > 0,
+            local_files_count,
             product_count,
             title_count,
             active_swap_count,

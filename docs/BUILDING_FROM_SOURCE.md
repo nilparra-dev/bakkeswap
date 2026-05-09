@@ -2,11 +2,9 @@
 
 ## Goal
 
-This document describes the current developer setup path for the public Rust + Tauri rewrite.
+This document describes the current developer setup path for the Rust core, CLI, and Phase 5 Tauri desktop GUI.
 
-Phase 1 database/search work is complete and the Phase 2 planner foundation is now implemented.
-
-Building from source today is primarily for contributors working on the Rust core, CLI, planner flow, and the Tauri shell.
+Building from source today is primarily for contributors working on the backend services, command bridge, and safe local desktop bring-up.
 
 ## Requirements
 
@@ -24,28 +22,33 @@ Building from source today is primarily for contributors working on the Rust cor
 
 On Windows, the MSVC toolchain also needs Windows SDK and Visual C++ build tools so the linker can find system libraries such as `kernel32.lib`.
 
-Those libraries are required for the validated Rust command set below.
+Those libraries are required for the validated Rust and Tauri command set below.
 
-## CLI And Core Build Steps
+## Validated Commands
 
 From the repository root:
 
 1. `cargo fmt`
-2. `cargo check -p bakkeswap-core -p bakkeswap-cli`
+2. `cargo check -p bakkeswap-core -p bakkeswap-cli -p bakkeswap-tauri`
 3. `cargo test -p bakkeswap-core`
 4. `cargo clippy -p bakkeswap-core -p bakkeswap-cli --all-targets -- -D warnings`
+5. `npm install`
+6. `npm run check`
+7. `npm run build`
 
-These commands were run successfully on the current Windows machine after Rust and Visual Studio Build Tools were installed.
+These commands are the current validation baseline for the Rust backend, CLI, and Svelte frontend.
 
-## Frontend And Tauri Setup
+## Desktop Dev Loop
 
 From the repository root:
 
-1. `npm install`
-2. `npm run dev`
-3. `npm run tauri:dev`
+1. `npm run tauri:dev`
+2. Use the Game Folder page to select a copied or fake Rocket League root, `TAGame`, or `CookedPCConsole`.
+3. Use the Database page to import a local dump folder and refresh indexes.
+4. Use Quick Swap to search TARGET and SOURCE, create a plan, build it, and request install preview.
+5. Only exercise confirmed install and restore against copied or fake `CookedPCConsole` roots.
 
-The GUI is still not the main implementation focus. The Rust database, config, import, indexing, search, and planner foundations come first.
+For frontend-only iteration, `npm run dev` is still useful, but the app will intentionally enter browser-only mode and display that the Rust backend is unavailable.
 
 ## Fake Fixture Smoke Workflow
 
@@ -70,10 +73,20 @@ Example smoke sequence from the repository root:
 5. `cargo run -p bakkeswap-cli -- search "Target Decal"`
 6. `cargo run -p bakkeswap-cli -- plan --target 1001 --source 1002`
 
+The equivalent GUI flow is:
+
+1. `npm run tauri:dev`
+2. Game Folder: set the fake root or `CookedPCConsole`
+3. Database: import the fixture dump folder, then refresh the database
+4. Quick Swap: search for the target and source products, create a plan, and build it
+5. Install Preview: verify warnings and blockers before any confirmation-gated install
+6. Active Swaps: use restore preview and confirmed restore only against the fake root
+
 ## Safety Rules While Developing
 
 - do not commit `.upk` files
 - do not commit real Rocket League assets
 - do not commit inventory dumps
 - do not test installs against the real `CookedPCConsole` during automation
+- do not test the GUI install or restore flows against a live install during bring-up
 - keep all validation sandboxed and offline/local only

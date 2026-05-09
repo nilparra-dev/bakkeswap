@@ -495,6 +495,8 @@ pub struct AppStatus {
     pub configured_codered_dumps_dir: Option<String>,
     pub database_ready: bool,
     pub local_files_indexed: bool,
+    #[serde(default)]
+    pub local_files_count: usize,
     pub product_count: usize,
     pub title_count: usize,
     pub active_swap_count: usize,
