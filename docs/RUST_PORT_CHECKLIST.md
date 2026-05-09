@@ -36,9 +36,9 @@
 - [x] Implement TARGET/SOURCE plan resolution
 - [x] Persist plans to SQLite and disk
 - [x] Emit sandbox-only visual package outputs
-- [ ] Build visual package outputs from saved plans
-- [ ] Build thumbnail package outputs when present
-- [ ] Save validation reports for builds
+- [x] Build visual package outputs from saved plans
+- [x] Build thumbnail package outputs when present
+- [x] Save validation reports for builds
 
 ## Backup And Install Safety
 
@@ -63,7 +63,7 @@
 - [x] Implement `upk inspect`
 - [x] Implement `upk known-answer --output`
 - [x] Implement `upk rebuild-sandbox`
-- [ ] Implement `build`
+- [x] Implement `build`
 - [ ] Implement `install --dry-run`
 - [ ] Implement `install`
 - [ ] Implement `restore --profile`
@@ -74,6 +74,7 @@
 ## Golden Validation
 
 - [x] Synthetic sandbox rebuild tests pass
+- [x] Synthetic saved-plan build tests pass
 - [ ] Boost known-answer rebuild passes in sandbox
 - [ ] Affluenter on Unzipped passes in sandbox
 - [ ] Contagion on Standard banner passes in sandbox

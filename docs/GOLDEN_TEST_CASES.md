@@ -35,6 +35,18 @@ Each golden case must prove all of the following:
 6. install dry-run shows exact target files and backup files
 7. no real install occurs during automated tests
 
+## Phase 3D Saved-Plan Build Gate
+
+Before local known-answer samples become release gates, the saved-plan build service must pass these synthetic checks:
+
+1. visual-only plan builds to the default workspace build root
+2. visual plus thumbnail plan builds to an explicit sandbox output root
+3. blocked plan returns a blocked build report and writes no outputs
+4. output roots inside `CookedPCConsole` are rejected
+5. missing source package paths fail with a helpful blocker message
+6. missing target package paths fail with a helpful blocker message
+7. plan JSON is updated with build status and validation results
+
 ## 1. Boost Known-Answer Rebuild
 
 Purpose:
@@ -130,6 +142,7 @@ Required assertions:
 
 - tests create a temporary sandbox cooked root
 - tests write plans and builds under a temporary workspace
+- tests may also write builds under an explicit temporary sandbox output root
 - tests use dry-run install only
 - tests fail fast on any missing local file or validation mismatch
 - planner-only tests may stop before build/install as long as blockers and warnings are explicit and correct

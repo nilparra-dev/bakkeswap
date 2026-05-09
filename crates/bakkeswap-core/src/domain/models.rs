@@ -1,6 +1,8 @@
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
+use crate::upk::SandboxRebuildValidationResult;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProductRecord {
     pub product_id: i64,
@@ -135,6 +137,22 @@ pub struct PlanBlocker {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlanBuildReport {
+    pub build_id: String,
+    pub profile_name: String,
+    pub status: String,
+    pub build_root: String,
+    pub visual_output_path: Option<String>,
+    pub visual_validation: Option<SandboxRebuildValidationResult>,
+    pub thumbnail_output_path: Option<String>,
+    pub thumbnail_validation: Option<SandboxRebuildValidationResult>,
+    pub warnings: Vec<PlanWarning>,
+    pub blockers: Vec<PlanBlocker>,
+    pub no_install_performed: bool,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SwapPlan {
     pub plan_id: String,
     pub schema_version: i64,
@@ -143,12 +161,16 @@ pub struct SwapPlan {
     pub offline_only: bool,
     pub database_path: Option<String>,
     pub configured_cooked_root: Option<String>,
+    #[serde(default = "default_plan_status")]
+    pub status: String,
     pub target_product: PlannedProduct,
     pub source_product: PlannedProduct,
     pub compatibility: CompatibilityCheck,
     pub operations: Vec<SwapOperation>,
     pub warnings: Vec<PlanWarning>,
     pub build_blockers: Vec<PlanBlocker>,
+    #[serde(default)]
+    pub last_build: Option<PlanBuildReport>,
     pub rollback_notes: Vec<String>,
     pub plan_path: String,
 }
@@ -226,4 +248,8 @@ pub struct AppStatus {
     pub active_swap_count: usize,
     pub original_backup_count: usize,
     pub profile_backup_count: usize,
+}
+
+fn default_plan_status() -> String {
+    "planned".to_string()
 }

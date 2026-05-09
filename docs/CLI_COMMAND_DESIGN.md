@@ -173,13 +173,29 @@ Still deferred:
 
 Purpose:
 
-- create rebuilt output files for a saved plan
+- execute sandbox-only rebuild output from a saved `swap_plan.json`
 
-Required future behavior:
+Current implementation:
 
-- reuse the sandbox-proven target-identity rebuild method from `upk rebuild-sandbox`
-- validate body equality and export-reference changes
-- save build record and validation results
+- loads the saved plan JSON from disk
+- verifies the supported `schema_version`
+- refuses plans with recorded build blockers
+- warns when the current configured cooked root differs from the cooked root recorded in the plan
+- rebuilds the visual operation through the Phase 3C sandbox rebuilder
+- rebuilds the thumbnail operation when the plan resolved one and skips it otherwise
+- writes outputs under `workspace/builds/<profile_name>/` by default
+- supports `--output-root <folder>` to redirect outputs to another explicit sandbox root
+- updates the plan JSON with build status and validation results
+- writes a build record into SQLite when the plan already exists in the `swap_plans` table
+- supports human-readable output by default and `--json` for machine-readable reports
+
+Still deferred:
+
+- any output path that targets the live game install
+- install orchestration
+- restore orchestration
+- plan-driven backup handling
+- dry-run install preview from saved builds
 
 ### `bakkeswap install --plan <plan_path> --dry-run`
 
@@ -258,6 +274,7 @@ Purpose:
 
 - automated validation must use sandbox paths only
 - sandbox rebuild commands must require an explicit output path outside `CookedPCConsole`
+- saved-plan builds must write only to `workspace/builds` or another explicit sandbox output root
 - no real CookedPCConsole writes during tests
 - no online or anti-cheat-adjacent behavior
 - no server inventory changes

@@ -7,7 +7,7 @@ pub mod restore;
 pub mod status;
 
 pub use backups::{PermanentOriginalBackupManager, ProfileBackupManager};
-pub use builder::BuildService;
+pub use builder::{BuildPlanRequest, BuildService};
 pub use installer::InstallerService;
 pub use paths::PathService;
 pub use planner::PlannerService;

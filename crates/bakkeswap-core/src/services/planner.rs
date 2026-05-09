@@ -192,6 +192,13 @@ impl PlannerService {
             })
             .collect::<Vec<_>>();
 
+        let plan_status = if build_blockers.is_empty() {
+            "planned"
+        } else {
+            "blocked"
+        }
+        .to_string();
+
         let plan = SwapPlan {
             plan_id: build_plan_id(
                 target_product_id,
@@ -204,12 +211,14 @@ impl PlannerService {
             offline_only: true,
             database_path: Some(self.database.database_path().display().to_string()),
             configured_cooked_root: configured_cooked_root.clone(),
+            status: plan_status.clone(),
             target_product,
             source_product,
             compatibility,
             operations: vec![visual_operation.clone(), thumbnail_operation.clone()],
             warnings,
             build_blockers,
+            last_build: None,
             rollback_notes,
             plan_path: plan_path.display().to_string(),
         };
@@ -231,11 +240,7 @@ impl PlannerService {
                 target_visual_identity: visual_operation.target_identity.clone(),
                 target_thumb_identity: thumbnail_operation.target_identity.clone(),
                 created_at: plan.created_at,
-                status: if plan.build_blockers.is_empty() {
-                    "planned".to_string()
-                } else {
-                    "blocked".to_string()
-                },
+                status: plan_status,
             },
         )?;
 

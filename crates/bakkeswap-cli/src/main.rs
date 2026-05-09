@@ -5,8 +5,10 @@ use bakkeswap_core::database::{
     CodeRedImportSource, DatabaseImporter, DatabaseService, LocalFileIndexer, SearchEngine,
     SearchKind, SearchRequest,
 };
-use bakkeswap_core::domain::models::SwapPlan;
-use bakkeswap_core::services::{PathService, PlannerService, StatusService};
+use bakkeswap_core::domain::models::{PlanBuildReport, SwapPlan};
+use bakkeswap_core::services::{
+    BuildPlanRequest, BuildService, PathService, PlannerService, StatusService,
+};
 use bakkeswap_core::upk::{
     rebuild_target_identity, KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest,
     SandboxRebuildOptions, SandboxRebuildReport, TableCountSnapshot, UpkInspectReport,
@@ -129,6 +131,12 @@ struct PlanArgs {
 struct BuildArgs {
     #[arg(long)]
     plan: PathBuf,
+    #[arg(long)]
+    output_root: Option<PathBuf>,
+    #[arg(long, default_value_t = false)]
+    create_dir: bool,
+    #[arg(long, default_value_t = false)]
+    json: bool,
 }
 
 #[derive(Debug, Args)]
@@ -184,7 +192,7 @@ fn dispatch(cli: Cli) -> Result<()> {
             UpkCommand::RebuildSandbox(args) => command_upk_rebuild_sandbox(args),
         },
         Command::Plan(args) => command_plan(args),
-        Command::Build(args) => print_stub_with_value("build", args.plan.display().to_string()),
+        Command::Build(args) => command_build(args),
         Command::Install(args) => print_stub_with_value(
             if args.dry_run {
                 "install --dry-run"
@@ -362,6 +370,27 @@ fn command_plan(args: PlanArgs) -> Result<()> {
     Ok(())
 }
 
+fn command_build(args: BuildArgs) -> Result<()> {
+    let report =
+        BuildService::new(DatabaseService::for_current_user()?).build_plan(&BuildPlanRequest {
+            plan_path: args.plan,
+            output_root: args.output_root,
+            create_dir: args.create_dir,
+        })?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        print_build_summary(&report);
+    }
+
+    if report.status != "built" {
+        std::process::exit(3);
+    }
+
+    Ok(())
+}
+
 fn print_search_table(hits: &[bakkeswap_core::database::SearchHit]) {
     if hits.is_empty() {
         println!("No results.");
@@ -534,6 +563,72 @@ fn print_upk_inspect_summary(report: &UpkInspectReport) {
         println!("Warnings:");
         for warning in &report.warnings {
             println!("  - {}", warning);
+        }
+    }
+}
+
+fn print_build_summary(report: &PlanBuildReport) {
+    println!("Plan build:");
+    println!("Profile: {}", report.profile_name);
+    println!("Status: {}", report.status);
+    println!("Build root: {}", report.build_root);
+    println!(
+        "No install performed: {}",
+        yes_no(report.no_install_performed)
+    );
+    println!(
+        "Visual output: {}",
+        report
+            .visual_output_path
+            .as_deref()
+            .unwrap_or("[not built]")
+    );
+    if let Some(validation) = &report.visual_validation {
+        println!(
+            "Visual validation: passed={} filename={} body={} target_name={} target_refs={}",
+            yes_no(validation.passed),
+            yes_no(validation.filename_matches_target),
+            yes_no(validation.body_equals_source),
+            yes_no(validation.target_name_present),
+            validation.target_export_name_count,
+        );
+    } else {
+        println!("Visual validation: [not available]");
+    }
+    println!(
+        "Thumbnail output: {}",
+        report
+            .thumbnail_output_path
+            .as_deref()
+            .unwrap_or("[not built]")
+    );
+    if let Some(validation) = &report.thumbnail_validation {
+        println!(
+            "Thumbnail validation: passed={} filename={} body={} target_name={} target_refs={}",
+            yes_no(validation.passed),
+            yes_no(validation.filename_matches_target),
+            yes_no(validation.body_equals_source),
+            yes_no(validation.target_name_present),
+            validation.target_export_name_count,
+        );
+    } else {
+        println!("Thumbnail validation: [not available]");
+    }
+
+    if report.blockers.is_empty() {
+        println!("Blockers: none");
+    } else {
+        println!("Blockers:");
+        for blocker in &report.blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if report.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &report.warnings {
+            println!("  - {}", warning.message);
         }
     }
 }
