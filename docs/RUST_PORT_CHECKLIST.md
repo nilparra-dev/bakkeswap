@@ -42,12 +42,12 @@
 
 ## Backup And Install Safety
 
-- [ ] Implement permanent original backup manager
-- [ ] Implement per-profile backup manager
+- [x] Implement permanent original backup manager
+- [x] Implement per-profile backup manager
 - [x] Implement dry-run install preview
 - [ ] Implement explicit confirmation for real install
 - [ ] Implement restore by profile
-- [ ] Implement original backup verification
+- [x] Implement original backup verification
 
 ## CLI Parity
 
@@ -68,20 +68,21 @@
 - [ ] Implement `install`
 - [ ] Implement `restore --profile`
 - [x] Implement `status`
-- [ ] Implement `backup originals status`
-- [ ] Implement `backup originals verify`
+- [x] Implement `backup originals status`
+- [x] Implement `backup originals verify`
 
 ## Golden Validation
 
 - [x] Synthetic sandbox rebuild tests pass
 - [x] Synthetic saved-plan build tests pass
+- [x] Synthetic backup manager tests pass
 - [ ] Boost known-answer rebuild passes in sandbox
 - [ ] Affluenter on Unzipped passes in sandbox
 - [ ] Contagion on Standard banner passes in sandbox
 - [ ] Cosmological on Bubbly passes in sandbox
 - [ ] Lunation on 20XX passes in sandbox
 - [ ] Laser Wave III on Gaseous passes in sandbox
-- [ ] Automated tests never touch real CookedPCConsole
+- [x] Automated tests never touch real CookedPCConsole
 
 ## GUI
 

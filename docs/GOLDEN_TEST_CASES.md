@@ -58,6 +58,19 @@ Before any real install path exists, the install preview service must pass these
 5. destination hash drift produces an explicit warning without writing files
 6. install without `--dry-run` refuses with the phase guard message
 
+## Phase 4B Backup Manager Gate
+
+Before any real install path exists, the backup managers must pass these synthetic checks:
+
+1. permanent original backup creates files and `manifest.json`
+2. permanent original backup second run does not overwrite an existing backup
+3. permanent original backup verify reports tracked files as valid when hashes still match
+4. permanent original backup hash mismatch returns a blocker
+5. profile backup creates files and `manifest.json`
+6. existing profile backup folders refuse reuse by default
+7. profile backup overwrite verification blocks on a tampered existing backup
+8. backup preparation never installs rebuilt files and never modifies destination files
+
 ## 1. Boost Known-Answer Rebuild
 
 Purpose:

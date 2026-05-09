@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -9,7 +8,7 @@ use sha2::{Digest, Sha256};
 use crate::database::DatabaseService;
 use crate::domain::models::{
     BackupPreview, InstallBlocker, InstallPreview, InstallPreviewFile, InstallWarning,
-    PlanBuildReport, SwapOperation, SwapPlan,
+    OriginalBackupManifest, PlanBuildReport, SwapOperation, SwapPlan,
 };
 
 const COOKED_DIR_KEY: &str = "cooked_dir";
@@ -27,18 +26,6 @@ pub struct InstallPreviewRequest {
 #[derive(Debug, Clone)]
 pub struct InstallerService {
     database: DatabaseService,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct OriginalBackupManifest {
-    #[serde(default)]
-    files: BTreeMap<String, OriginalBackupManifestEntry>,
-}
-
-#[derive(Debug, Default, Deserialize)]
-struct OriginalBackupManifestEntry {
-    #[serde(default)]
-    sha256: Option<String>,
 }
 
 impl InstallerService {
@@ -440,9 +427,8 @@ fn build_preview_for_operation(
         }
         (Some(record), true) => {
             let backup_sha = hash_path(&original_backup_path).ok();
-            if let (Some(backup_sha), Some(manifest_sha)) =
-                (backup_sha.as_deref(), record.sha256.as_deref())
-            {
+            if let Some(backup_sha) = backup_sha.as_deref() {
+                let manifest_sha = record.sha256.as_str();
                 if backup_sha != manifest_sha {
                     original_backup_warnings.push(
                         "Permanent original backup hash does not match manifest.json.".to_string(),

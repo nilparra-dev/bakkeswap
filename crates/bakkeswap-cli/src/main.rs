@@ -5,10 +5,12 @@ use bakkeswap_core::database::{
     CodeRedImportSource, DatabaseImporter, DatabaseService, LocalFileIndexer, SearchEngine,
     SearchKind, SearchRequest,
 };
-use bakkeswap_core::domain::models::{InstallPreview, PlanBuildReport, SwapPlan};
+use bakkeswap_core::domain::models::{
+    BackupResult, BackupVerificationResult, InstallPreview, PlanBuildReport, SwapPlan,
+};
 use bakkeswap_core::services::{
     BuildPlanRequest, BuildService, InstallPreviewRequest, InstallerService, PathService,
-    PlannerService, StatusService,
+    PermanentOriginalBackupManager, PlannerService, ProfileBackupManager, StatusService,
 };
 use bakkeswap_core::upk::{
     rebuild_target_identity, KnownAnswerHarness, KnownAnswerReport, KnownAnswerRequest,
@@ -162,12 +164,40 @@ enum BackupCommand {
         #[command(subcommand)]
         command: BackupOriginalsCommand,
     },
+    Profile {
+        #[command(subcommand)]
+        command: BackupProfileCommand,
+    },
 }
 
 #[derive(Debug, Subcommand)]
 enum BackupOriginalsCommand {
     Status,
     Verify,
+    Prepare(BackupPrepareArgs),
+}
+
+#[derive(Debug, Subcommand)]
+enum BackupProfileCommand {
+    Prepare(ProfileBackupPrepareArgs),
+}
+
+#[derive(Debug, Args)]
+struct BackupPrepareArgs {
+    #[arg(long)]
+    plan: PathBuf,
+    #[arg(long, default_value_t = false)]
+    json: bool,
+}
+
+#[derive(Debug, Args)]
+struct ProfileBackupPrepareArgs {
+    #[arg(long)]
+    plan: PathBuf,
+    #[arg(long, default_value_t = false)]
+    overwrite_profile_backup: bool,
+    #[arg(long, default_value_t = false)]
+    json: bool,
 }
 
 fn main() -> Result<()> {
@@ -201,8 +231,12 @@ fn dispatch(cli: Cli) -> Result<()> {
         Command::Status => command_status(),
         Command::Backup { command } => match command {
             BackupCommand::Originals { command } => match command {
-                BackupOriginalsCommand::Status => print_stub("backup originals status"),
-                BackupOriginalsCommand::Verify => print_stub("backup originals verify"),
+                BackupOriginalsCommand::Status => command_backup_originals_status(),
+                BackupOriginalsCommand::Verify => command_backup_originals_verify(),
+                BackupOriginalsCommand::Prepare(args) => command_backup_originals_prepare(args),
+            },
+            BackupCommand::Profile { command } => match command {
+                BackupProfileCommand::Prepare(args) => command_backup_profile_prepare(args),
             },
         },
     }
@@ -407,6 +441,68 @@ fn command_install(args: InstallArgs) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn command_backup_originals_status() -> Result<()> {
+    let result =
+        PermanentOriginalBackupManager::new(DatabaseService::for_current_user()?).status()?;
+    print_backup_verification_summary(&result);
+    Ok(())
+}
+
+fn command_backup_originals_verify() -> Result<()> {
+    let result =
+        PermanentOriginalBackupManager::new(DatabaseService::for_current_user()?).verify()?;
+    print_backup_verification_summary(&result);
+    if result.status != "ready" {
+        std::process::exit(6);
+    }
+    Ok(())
+}
+
+fn command_backup_originals_prepare(args: BackupPrepareArgs) -> Result<()> {
+    let database = DatabaseService::for_current_user()?;
+    let preview = load_install_preview(database.clone(), args.plan)?;
+    let result = PermanentOriginalBackupManager::new(database).prepare_from_preview(&preview)?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        print_backup_result_summary(&result);
+    }
+
+    if result.status != "prepared" {
+        std::process::exit(5);
+    }
+
+    Ok(())
+}
+
+fn command_backup_profile_prepare(args: ProfileBackupPrepareArgs) -> Result<()> {
+    let database = DatabaseService::for_current_user()?;
+    let preview = load_install_preview(database.clone(), args.plan)?;
+    let result = ProfileBackupManager::new(database)
+        .prepare_from_preview(&preview, args.overwrite_profile_backup)?;
+
+    if args.json {
+        println!("{}", serde_json::to_string_pretty(&result)?);
+    } else {
+        print_backup_result_summary(&result);
+    }
+
+    if result.status != "prepared" {
+        std::process::exit(5);
+    }
+
+    Ok(())
+}
+
+fn load_install_preview(database: DatabaseService, plan: PathBuf) -> Result<InstallPreview> {
+    InstallerService::new(database).preview_install(&InstallPreviewRequest {
+        plan_path: plan,
+        dry_run: true,
+        ..InstallPreviewRequest::default()
+    })
 }
 
 fn print_search_table(hits: &[bakkeswap_core::database::SearchHit]) {
@@ -729,6 +825,84 @@ fn print_install_preview_summary(preview: &InstallPreview) {
     println!("Dry run only. No files were written to CookedPCConsole.");
 }
 
+fn print_backup_result_summary(result: &BackupResult) {
+    println!("Backup kind: {}", result.backup_kind);
+    println!("Status: {}", result.status);
+    if let Some(profile_name) = &result.profile_name {
+        println!("Profile: {}", profile_name);
+    }
+    println!("Backup root: {}", result.backup_root);
+    println!("Manifest: {}", result.manifest_path);
+    println!("Created files: {}", result.created_count);
+    println!("Existing files: {}", result.existing_count);
+    println!("Verified files: {}", result.verified_count);
+    if result.blockers.is_empty() {
+        println!("Blockers: none");
+    } else {
+        println!("Blockers:");
+        for blocker in &result.blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if result.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &result.warnings {
+            println!("  - {}", warning.message);
+        }
+    }
+    if result.files.is_empty() {
+        println!("Files: [none]");
+    } else {
+        println!("Files:");
+        for file in &result.files {
+            println!(
+                "  {}: {} -> {} ({})",
+                file.operation_kind, file.source_path, file.backup_path, file.status
+            );
+        }
+    }
+}
+
+fn print_backup_verification_summary(result: &BackupVerificationResult) {
+    println!("Backup kind: {}", result.backup_kind);
+    println!("Status: {}", result.status);
+    println!("Backup root: {}", result.backup_root);
+    println!("Manifest: {}", result.manifest_path);
+    println!("Tracked files: {}", result.tracked_file_count);
+    println!("Missing files: {}", result.missing_file_count);
+    println!("Mismatched files: {}", result.mismatched_file_count);
+    println!("Untracked files: {}", result.untracked_file_count);
+    if result.blockers.is_empty() {
+        println!("Blockers: none");
+    } else {
+        println!("Blockers:");
+        for blocker in &result.blockers {
+            println!("  - {}", blocker.message);
+        }
+    }
+    if result.warnings.is_empty() {
+        println!("Warnings: none");
+    } else {
+        println!("Warnings:");
+        for warning in &result.warnings {
+            println!("  - {}", warning.message);
+        }
+    }
+    if result.files.is_empty() {
+        println!("Files: [none]");
+    } else {
+        println!("Files:");
+        for file in &result.files {
+            println!(
+                "  {}: {} ({})",
+                file.target_relative_path, file.backup_path, file.status
+            );
+        }
+    }
+}
+
 fn print_known_answer_summary(report: &KnownAnswerReport) {
     println!("Known-answer harness:");
     println!("Source: {}", report.source.path);
@@ -968,18 +1142,6 @@ fn configured_cooked_dir_string() -> Result<Option<String>> {
     Ok(PathService::new(DatabaseService::for_current_user()?)
         .configured_cooked_dir()?
         .map(|value| value.display().to_string()))
-}
-
-fn print_stub(command: &str) -> Result<()> {
-    println!(
-        "{}",
-        serde_json::to_string_pretty(&json!({
-            "command": command,
-            "status": "skeleton-only",
-            "message": "Rust CLI contract created; implementation not ported yet."
-        }))?
-    );
-    Ok(())
 }
 
 fn print_stub_with_value(command: &str, value: String) -> Result<()> {

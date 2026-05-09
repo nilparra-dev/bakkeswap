@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -250,6 +252,110 @@ pub struct InstallPreview {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OriginalBackupManifest {
+    #[serde(default = "default_backup_schema_version")]
+    pub schema_version: i64,
+    #[serde(default)]
+    pub files: BTreeMap<String, OriginalBackupEntry>,
+}
+
+impl Default for OriginalBackupManifest {
+    fn default() -> Self {
+        Self {
+            schema_version: default_backup_schema_version(),
+            files: BTreeMap::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OriginalBackupEntry {
+    pub target_relative_path: String,
+    pub target_path: String,
+    pub sha256: String,
+    pub size_bytes: u64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileBackupManifest {
+    #[serde(default = "default_backup_schema_version")]
+    pub schema_version: i64,
+    pub profile_name: String,
+    pub plan_path: String,
+    pub created_at: DateTime<Utc>,
+    #[serde(default)]
+    pub overwritten_existing: bool,
+    #[serde(default)]
+    pub files: BTreeMap<String, ProfileBackupEntry>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProfileBackupEntry {
+    pub operation_kind: String,
+    pub target_relative_path: String,
+    pub target_path: String,
+    pub sha256: String,
+    pub size_bytes: u64,
+    pub created_at: DateTime<Utc>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupWarning {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupBlocker {
+    pub code: String,
+    pub message: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupFileResult {
+    pub backup_kind: String,
+    pub operation_kind: String,
+    pub target_relative_path: String,
+    pub source_path: String,
+    pub backup_path: String,
+    pub sha256: Option<String>,
+    pub size_bytes: Option<u64>,
+    pub status: String,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupResult {
+    pub backup_kind: String,
+    pub status: String,
+    pub profile_name: Option<String>,
+    pub backup_root: String,
+    pub manifest_path: String,
+    pub files: Vec<BackupFileResult>,
+    pub created_count: usize,
+    pub existing_count: usize,
+    pub verified_count: usize,
+    pub warnings: Vec<BackupWarning>,
+    pub blockers: Vec<BackupBlocker>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackupVerificationResult {
+    pub backup_kind: String,
+    pub status: String,
+    pub backup_root: String,
+    pub manifest_path: String,
+    pub tracked_file_count: usize,
+    pub missing_file_count: usize,
+    pub mismatched_file_count: usize,
+    pub untracked_file_count: usize,
+    pub files: Vec<BackupFileResult>,
+    pub warnings: Vec<BackupWarning>,
+    pub blockers: Vec<BackupBlocker>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct InstalledSwapRecord {
     pub install_id: String,
     pub plan_id: String,
@@ -312,4 +418,8 @@ pub struct AppStatus {
 
 fn default_plan_status() -> String {
     "planned".to_string()
+}
+
+fn default_backup_schema_version() -> i64 {
+    1
 }

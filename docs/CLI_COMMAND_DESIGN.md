@@ -266,11 +266,66 @@ Purpose:
 
 - show permanent original-backup coverage and verification state
 
+Current implementation:
+
+- inspects `workspace/original_files_backup/manifest.json`
+- reports tracked, missing, mismatched, and untracked backup files
+- does not write or repair any backup data
+
 ### `bakkeswap backup originals verify`
 
 Purpose:
 
 - verify permanent original-backup hashes and manifest integrity
+
+Current implementation:
+
+- reads the permanent original backup manifest
+- hashes tracked backup files under `workspace/original_files_backup/`
+- reports missing files and hash mismatches as blockers
+- refuses silently repairing or overwriting original backups
+
+### `bakkeswap backup originals prepare --plan <plan_path>`
+
+Purpose:
+
+- create permanent original backups from the current destination files named by an install preview
+
+Current implementation:
+
+- loads the saved plan through the existing install dry-run preview
+- reads the current destination files in the configured `CookedPCConsole`
+- copies each untouched destination file once into `workspace/original_files_backup/`
+- writes or updates `workspace/original_files_backup/manifest.json`
+- verifies copied hashes after every backup write
+- refuses to overwrite existing permanent originals automatically
+- supports human-readable output by default and `--json` for machine-readable reports
+
+Still deferred:
+
+- any automatic refresh or overwrite flow for permanent originals
+- repair commands for inconsistent original backup state
+
+### `bakkeswap backup profile prepare --plan <plan_path>`
+
+Purpose:
+
+- create the per-profile backup set that a later restore flow will consume
+
+Current implementation:
+
+- loads the saved plan through the existing install dry-run preview
+- copies current destination files into `workspace/backups/<profile_name>/`
+- writes `workspace/backups/<profile_name>/manifest.json`
+- verifies copied hashes after every backup write
+- refuses to reuse an existing profile backup folder by default
+- supports `--overwrite-profile-backup` for explicit replacement
+- supports human-readable output by default and `--json` for machine-readable reports
+
+Still deferred:
+
+- restore execution from the profile manifest
+- automatic profile backup creation as part of real install
 
 ## Output Design Rules
 
