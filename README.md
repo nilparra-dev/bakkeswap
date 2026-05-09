@@ -26,7 +26,7 @@ Other players will not see your local visual changes unless they independently m
 
 ## Current Status
 
-This repository now contains the stable backend phases through install and restore, plus the first usable Phase 5 Tauri GUI wiring over those backend contracts.
+This repository now contains the stable backend phases through install and restore, the first usable Phase 5 Tauri GUI wiring, and a repeatable Phase 5B synthetic sandbox smoke flow for the desktop app.
 
 ### Completed
 
@@ -38,7 +38,8 @@ This repository now contains the stable backend phases through install and resto
 - permanent original backup status and verification
 - CLI command surface for the implemented backend phases
 - Tauri command bridge over `bakkeswap-core`
-- Svelte screens for Home, Game Folder, Database, Quick Swap, Install Preview, Active Swaps, Backups, and Logs
+- controlled GUI sandbox smoke helper under `src-tauri`
+- Svelte screens for Home, Game Folder, Database, Quick Swap, Install Preview, Active Swaps, Backups, Diagnostics, and Logs
 - architecture, migration, schema, safety, and phase-status docs
 
 ### Not Yet Implemented
@@ -94,9 +95,12 @@ The Python prototype exists separately and is not included in this repository.
 5. Run `npm install`.
 6. Run `npm run check`.
 7. Run `npm run build`.
-8. If Tauri prerequisites are installed, run `npm run tauri:dev`.
+8. Run `cargo test -p bakkeswap-tauri gui_sandbox_smoke::controlled_gui_sandbox_smoke_flow -- --exact --nocapture --test-threads=1`.
+9. If Tauri prerequisites are installed, run `npm run tauri:dev`.
 
 Running `npm run dev` without Tauri is still useful for frontend-only iteration, but the app will intentionally report that the Rust backend is unavailable and will not perform desktop operations.
+
+The controlled smoke helper creates `target/gui_smoke` with a fake Rocket League root, fake CodeRed dumps, synthetic package files, and a local app home, then drives the full desktop contract path without touching real game files.
 
 ## Safety Boundaries
 
@@ -130,6 +134,8 @@ Do not commit personal machine paths, real game files, inventory dumps, or gener
 - `docs/SAFETY_MODEL.md`
 - `docs/PHASE_5_TAURI_GUI_STATUS.md`
 - `docs/GUI_UX_FLOW.md`
+- `docs/GUI_SANDBOX_SMOKE_WORKFLOW.md`
+- `docs/PHASE_5B_GUI_SANDBOX_SMOKE_STATUS.md`
 
 ## Contributing
 

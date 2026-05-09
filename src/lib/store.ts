@@ -273,8 +273,12 @@ function createAppStore() {
       mutate((state) => {
         if (kind === "game") {
           state.setup.game_path_input = folder;
+          state.setup.validation = null;
+          state.setup.error = null;
         } else {
           state.database.import_folder_input = folder;
+          state.database.last_import_summary = null;
+          state.database.error = null;
         }
       });
     } catch (error) {
@@ -298,6 +302,7 @@ function createAppStore() {
   function setGamePathInput(value: string): void {
     mutate((state) => {
       state.setup.game_path_input = value;
+      state.setup.validation = null;
       state.setup.error = null;
     });
   }
@@ -305,6 +310,7 @@ function createAppStore() {
   function setImportFolderInput(value: string): void {
     mutate((state) => {
       state.database.import_folder_input = value;
+      state.database.last_import_summary = null;
       state.database.error = null;
     });
   }

@@ -11,8 +11,8 @@ use bakkeswap_core::services::backups::PermanentOriginalBackupManager;
 use bakkeswap_core::services::paths::ConfigSnapshot;
 use bakkeswap_core::services::{
     BuildPlanRequest, BuildService, InstallExecutionRequest, InstallPreviewRequest,
-    InstallerService, PathService, PlannerService, RestoreExecutionRequest,
-    RestorePreviewRequest, RestoreService, StatusService,
+    InstallerService, PathService, PlannerService, RestoreExecutionRequest, RestorePreviewRequest,
+    RestoreService, StatusService,
 };
 use serde::Serialize;
 
@@ -130,22 +130,17 @@ pub async fn install_preview(request: InstallPreviewRequest) -> CommandResult<In
 }
 
 #[tauri::command]
-pub async fn install_confirmed(
-    request: InstallExecutionRequest,
-) -> CommandResult<InstallReport> {
+pub async fn install_confirmed(request: InstallExecutionRequest) -> CommandResult<InstallReport> {
     run_with_database(move |database| InstallerService::new(database).install(&request)).await
 }
 
 #[tauri::command]
 pub async fn restore_preview(request: RestorePreviewRequest) -> CommandResult<RestoreReport> {
-    run_with_database(move |database| RestoreService::new(database).preview_restore(&request))
-        .await
+    run_with_database(move |database| RestoreService::new(database).preview_restore(&request)).await
 }
 
 #[tauri::command]
-pub async fn restore_confirmed(
-    request: RestoreExecutionRequest,
-) -> CommandResult<RestoreReport> {
+pub async fn restore_confirmed(request: RestoreExecutionRequest) -> CommandResult<RestoreReport> {
     run_with_database(move |database| RestoreService::new(database).restore(&request)).await
 }
 

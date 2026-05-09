@@ -27,6 +27,7 @@ Each later step depends on the earlier step instead of bypassing it.
 - every mutating desktop action must pass through a Tauri command that calls `bakkeswap-core`
 - browser-only mode is intentionally non-mutating and must show that the backend is unavailable
 - TARGET and SOURCE selection remains explicit in the GUI to reduce operator error
+- path posture labels in the GUI are advisory hints only and may not override backend validation or preview blockers
 
 ## Install Safety Rules
 
@@ -61,8 +62,10 @@ Each later step depends on the earlier step instead of bypassing it.
 ## Setup And Validation Rules
 
 - GUI bring-up must use copied or fake `CookedPCConsole` roots first
+- the controlled Phase 5B smoke helper must use `target/gui_smoke` or another clearly fake sandbox tree
 - desktop folder pickers only target local directories supplied by the user
 - automated validation may compile the Tauri app, but it may not point at a live Rocket League install
+- automated desktop smoke validation may run the Tauri command bridge against synthetic dumps and synthetic package files only
 - backend preview results remain the source of truth for blockers, warnings, and confirmation phrases
 
 ## Hard Boundaries

@@ -20,3 +20,7 @@ serde_json.workspace = true
 tauri = { version = "2.0.0", features = [] }
 tauri-plugin-dialog = "2.0.0"
 tracing-subscriber.workspace = true
+
+[dev-dependencies]
+pollster = "0.4"
+sha2.workspace = true

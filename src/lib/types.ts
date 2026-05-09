@@ -6,6 +6,7 @@ export type PageId =
   | "install-preview"
   | "active-swaps"
   | "backups"
+  | "diagnostics"
   | "logs";
 
 export interface UiNotice {
